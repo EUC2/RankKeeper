@@ -218,8 +218,35 @@ export default function GradingApp() {
   // entry working selection
   const [selStudent, setSelStudent] = useState("");
   const [newName, setNewName] = useState("");
+  const [newDob, setNewDob] = useState("");
   const [newStartRank, setNewStartRank] = useState("Beginner");
-  const [editingStudent, setEditingStudent] = useState(null); // {id, name} being edited
+  const [editingStudent, setEditingStudent] = useState(null); // {id, name, dob} being edited
+
+  // Calculate age from DOB string (YYYY-MM-DD) using device timezone
+  const calcAge = (dob) => {
+    if (!dob) return null;
+    const today = new Date();
+    const b = new Date(dob + 'T00:00:00');
+    let age = today.getFullYear() - b.getFullYear();
+    const m = today.getMonth() - b.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < b.getDate())) age--;
+    return age;
+  };
+
+  // Format YYYY-MM-DD to MM/DD/YYYY for display
+  const fmtDob = (dob) => {
+    if (!dob) return '';
+    const [y,m,d] = dob.split('-');
+    return `${m}/${d}/${y}`;
+  };
+
+  // Parse MM/DD/YYYY input to YYYY-MM-DD for storage
+  const parseDob = (str) => {
+    if (!str) return '';
+    const parts = str.replace(/[^0-9]/g, '');
+    if (parts.length !== 8) return str;
+    return `${parts.slice(4,8)}-${parts.slice(0,2)}-${parts.slice(2,4)}`;
+  };
   const [overrideGrade, setOverrideGrade] = useState("");
   const [testDate, setTestDate] = useState(today());
   const [scores, setScores] = useState({}); // { itemId: "Pass"|"Refer"|"Fail" } — in-app data entry
@@ -299,14 +326,14 @@ export default function GradingApp() {
 
   const addStudent = () => {
     const name = newName.trim(); if (!name) return;
-    const id = uid(); const r = [...roster, { id, name }];
+    const dob = parseDob(newDob) || null;
+    const id = uid(); const r = [...roster, { id, name, dob }];
     let h = history;
     if (newStartRank && newStartRank !== "Beginner") {
-      // Find the grade key whose .to matches the selected rank
       const gKey = grades.find((k) => syllabus[k].to === newStartRank) || newStartRank;
       h = [...history, { id: uid(), studentId: id, studentName: name, date: today(), grade: gKey, result: "Pass", rank: newStartRank, note: "starting rank" }];
     }
-    setNewName(""); setNewStartRank("Beginner"); setSelStudent(id); setOverrideGrade("");
+    setNewName(""); setNewDob(""); setNewStartRank("Beginner"); setSelStudent(id); setOverrideGrade("");
     persistStudents(r, h);
   };
   const removeStudent = (id) => {
@@ -316,7 +343,8 @@ export default function GradingApp() {
   };
   const saveEditStudent = () => {
     if (!editingStudent || !editingStudent.name.trim()) return;
-    const r = roster.map((s) => s.id === editingStudent.id ? { ...s, name: editingStudent.name.trim() } : s);
+    const dob = parseDob(editingStudent.dob) || editingStudent.dob || null;
+    const r = roster.map((s) => s.id === editingStudent.id ? { ...s, name: editingStudent.name.trim(), dob } : s);
     const h = history.map((e) => e.studentId === editingStudent.id ? { ...e, studentName: editingStudent.name.trim() } : e);
     persistStudents(r, h);
     setEditingStudent(null);
@@ -525,6 +553,16 @@ export default function GradingApp() {
                 <input className="ng-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Full name" onKeyDown={(e) => e.key === "Enter" && addStudent()} />
                 <button className="ng-btn ng-btn-ink" style={{ flex: "none" }} onClick={addStudent}><Plus size={16} /> Add</button>
               </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
+                <div>
+                  <label className="lbl">Date of birth</label>
+                  <input className="ng-input" value={newDob} onChange={(e) => setNewDob(e.target.value)} placeholder="MM/DD/YYYY" maxLength={10} />
+                </div>
+                <div>
+                  <label className="lbl">Age</label>
+                  <input className="ng-input" value={newDob && parseDob(newDob).length === 10 ? (calcAge(parseDob(newDob)) ?? '') : ''} readOnly style={{ background: "var(--paper2)", color: "var(--ink-soft)", cursor: "not-allowed" }} placeholder="Auto" />
+                </div>
+              </div>
               <div style={{ marginTop: 10 }}>
                 <label className="lbl">Starting rank <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(default: Beginner / White)</span></label>
                 <div style={{ position: "relative" }}>
@@ -575,6 +613,7 @@ export default function GradingApp() {
                               <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
                                 <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: { Beginner:"#F5F5F5","10th Kyu":"#F5F5F5","9th Kyu":"#F5F5F5","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a" }[rank]||"#999", border: "0.5px solid rgba(0,0,0,0.12)" }} />
                                 {rank}{stripes > 0 && <span style={{ background: "#FEF3C7", color: "#92400E", border: "0.5px solid #F59E0B", borderRadius: 10, fontSize: 10, fontWeight: 500, padding: "1px 6px", marginLeft: 4 }}>Stripe</span>}
+                                {s.dob && <span style={{ color: "var(--ink-soft)" }}> · Age {calcAge(s.dob)}</span>}
                               </div>
                             </div>
                             <ChevronRight size={18} style={{ color: "var(--ink-soft)", transform: isSelected ? "rotate(90deg)" : "none", transition: "transform .15s" }} />
@@ -617,18 +656,41 @@ export default function GradingApp() {
                               {/* Actions */}
                               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
                                 <button className="ng-btn ng-btn-primary" style={{ fontSize: 13, padding: "9px 14px" }} onClick={() => setScreen("assess")} disabled={!testing}><ClipboardList size={14} /> Assess</button>
-                                <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setEditingStudent(editingStudent?.id === s.id ? null : { id: s.id, name: s.name })}><UserRound size={13} /> Edit</button>
+                                <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setEditingStudent(editingStudent?.id === s.id ? null : { id: s.id, name: s.name, dob: s.dob || '', belt: '' })}><UserRound size={13} /> Edit</button>
                                 <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setScreen("print")} disabled={!testing}><Printer size={13} /> Sheet</button>
                               </div>
 
-                              {/* Inline edit */}
+                              {/* Edit sheet */}
                               {editingStudent?.id === s.id && (
-                                <div style={{ background: "var(--paper2)", borderRadius: 10, padding: 12, marginBottom: 10, display: "grid", gap: 8 }}>
-                                  <label className="lbl" style={{ marginBottom: 0 }}>Edit name</label>
+                                <div style={{ background: "var(--paper2)", borderRadius: 12, padding: "16px 14px", marginBottom: 10 }}>
+                                  <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 14 }}>Edit Student</div>
+                                  <div style={{ marginBottom: 12 }}>
+                                    <label className="lbl">Full name</label>
+                                    <input className="ng-input" style={{ borderColor: "var(--gold)", outlineColor: "var(--gold)" }} value={editingStudent.name} onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })} autoFocus />
+                                  </div>
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                                    <div>
+                                      <label className="lbl">Date of birth</label>
+                                      <input className="ng-input" value={editingStudent.dobDisplay || fmtDob(editingStudent.dob) || ''} onChange={(e) => setEditingStudent({ ...editingStudent, dobDisplay: e.target.value, dob: parseDob(e.target.value) })} placeholder="MM/DD/YYYY" maxLength={10} />
+                                    </div>
+                                    <div>
+                                      <label className="lbl">Age <span style={{ fontWeight: 400, textTransform: "none" }}>(auto)</span></label>
+                                      <input className="ng-input" value={calcAge(editingStudent.dob) ?? ''} readOnly style={{ background: "#eee", color: "var(--ink-soft)", cursor: "not-allowed" }} placeholder="—" />
+                                    </div>
+                                  </div>
+                                  <div style={{ marginBottom: 14 }}>
+                                    <label className="lbl">Belt rank</label>
+                                    <div style={{ position: "relative" }}>
+                                      <select className="ng-select" value={editingStudent.belt || ''} onChange={(e) => setEditingStudent({ ...editingStudent, belt: e.target.value })}>
+                                        <option value="">— unchanged —</option>
+                                        {["White","Yellow","Orange","Green","Blue","Purple","Brown","Black"].map(b => <option key={b} value={b}>{b}</option>)}
+                                      </select>
+                                      <ChevronDown size={14} style={{ position: "absolute", right: 10, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                                    </div>
+                                  </div>
                                   <div style={{ display: "flex", gap: 8 }}>
-                                    <input className="ng-input" style={{ padding: "8px 10px", fontSize: 13 }} value={editingStudent.name} onChange={(e) => setEditingStudent({ ...editingStudent, name: e.target.value })} onKeyDown={(e) => e.key === "Enter" && saveEditStudent()} autoFocus />
-                                    <button className="ng-btn ng-btn-ink" style={{ flex: "none", padding: "8px 12px", fontSize: 13 }} onClick={saveEditStudent}><Check size={13} /> Save</button>
-                                    <button className="ng-btn ng-btn-ghost" style={{ flex: "none", padding: "8px 10px", fontSize: 13 }} onClick={() => setEditingStudent(null)}>✕</button>
+                                    <button className="ng-btn ng-btn-ghost" style={{ flex: 1, padding: "11px" }} onClick={() => setEditingStudent(null)}>Cancel</button>
+                                    <button className="ng-btn ng-btn-ink" style={{ flex: 1, padding: "11px", background: "var(--navy)", color: "var(--gold)", fontWeight: 700 }} onClick={saveEditStudent}>Save changes</button>
                                   </div>
                                 </div>
                               )}
