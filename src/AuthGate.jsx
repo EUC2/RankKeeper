@@ -34,6 +34,7 @@ export default function AuthGate() {
   const [checkingProfile, setCheckingProfile] = useState(false);
 
   const [mode, setMode] = useState("login");
+  const [showHome, setShowHome] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
@@ -202,11 +203,113 @@ export default function AuthGate() {
     );
   }
 
+  if (showHome) {
+    return (
+      <>
+        <style>{styles}</style>
+        <style>{`
+          .home{min-height:100dvh;background:linear-gradient(135deg,#002570 0%,#001845 60%,#000d2e 100%);color:#F0EDE6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;flex-direction:column;}
+          .home-nav{padding:18px 20px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid rgba(212,175,55,0.2);}
+          .home-wordmark{font-size:18px;font-weight:700;color:#fff;letter-spacing:-.01em;}
+          .home-euc{font-size:11px;color:#D4AF37;letter-spacing:.06em;text-transform:uppercase;margin-top:1px;}
+          .home-greeting{padding:24px 20px 8px;text-align:center;}
+          .home-greeting h1{font-size:24px;font-weight:700;color:#fff;margin:0 0 6px;letter-spacing:-.02em;}
+          .home-greeting p{font-size:14px;color:#8A8AAA;margin:0;}
+          .home-cards{flex:1;display:flex;flex-direction:column;gap:14px;padding:16px 16px 24px;}
+          .hcard{border-radius:16px;background:#1C1C2E;border:1px solid #2E2E42;overflow:hidden;display:flex;flex-direction:column;}
+          .hcard-accent{height:3px;background:linear-gradient(90deg,#D4AF37,#F0D060);}
+          .hcard-body{padding:18px 18px 14px;display:flex;gap:14px;align-items:flex-start;}
+          .hcard-logo{width:54px;height:54px;border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;overflow:hidden;}
+          .hcard-logo img{width:100%;height:100%;object-fit:contain;padding:4px;}
+          .hcard-info{flex:1;}
+          .hcard-title{font-size:20px;font-weight:700;color:#fff;letter-spacing:-.02em;margin:0 0 4px;}
+          .hcard-desc{font-size:13px;color:#8A8AAA;line-height:1.5;margin:0 0 10px;}
+          .hcard-pills{display:flex;flex-wrap:wrap;gap:5px;}
+          .hcard-pill{font-size:11px;font-weight:500;padding:2px 8px;border-radius:20px;background:rgba(212,175,55,0.1);border:0.5px solid rgba(212,175,55,0.25);color:#D4AF37;}
+          .hcard-footer{padding:0 18px 18px;}
+          .hcard-btn{width:100%;padding:14px;border-radius:10px;border:none;background:linear-gradient(135deg,#D4AF37,#F0D060);color:#002570;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;letter-spacing:.01em;}
+          .hcard-btn:active{opacity:.88;}
+          .home-foot{padding:10px 20px 20px;text-align:center;border-top:0.5px solid rgba(255,255,255,0.06);}
+          .home-foot span{font-size:11px;color:#8A8AAA;}
+          .home-foot button{background:none;border:none;color:#D4AF37;font-size:11px;cursor:pointer;font-family:inherit;text-decoration:underline;padding:0;margin-left:4px;}
+          @media(orientation:landscape){.home-cards{flex-direction:row;}}
+        `}</style>
+        <div className="home">
+          <div className="home-nav">
+            <div>
+              <div className="home-wordmark">RankKeeper</div>
+              <div className="home-euc">Education Under Construction</div>
+            </div>
+            <span style={{fontSize:12,color:"rgba(255,255,255,0.45)"}}>{session.user.email}</span>
+          </div>
+
+          <div className="home-greeting">
+            <h1>Welcome back, Sensei</h1>
+            <p>What are we running today?</p>
+          </div>
+
+          <div className="home-cards">
+            {/* RankKeeper card */}
+            <div className="hcard">
+              <div className="hcard-accent"/>
+              <div className="hcard-body">
+                <div className="hcard-logo" style={{background:"#F5F0E8"}}>
+                  <img src="/icon-512.png" alt="RankKeeper"/>
+                </div>
+                <div className="hcard-info">
+                  <div className="hcard-title">RankKeeper</div>
+                  <div className="hcard-desc">Track student ranks, belt history, and progression across your dojo roster.</div>
+                  <div className="hcard-pills">
+                    <span className="hcard-pill">Rank tracking</span>
+                    <span className="hcard-pill">Roster</span>
+                    <span className="hcard-pill">Belt history</span>
+                  </div>
+                </div>
+              </div>
+              <div className="hcard-footer">
+                <button className="hcard-btn" onClick={() => setShowHome(false)}>Enter RankKeeper →</button>
+              </div>
+            </div>
+
+            {/* ScoreKeeper card */}
+            <div className="hcard">
+              <div className="hcard-accent"/>
+              <div className="hcard-body">
+                <div className="hcard-logo" style={{background:"#0a0a14"}}>
+                  <img src="/scorekeeper-logo.png" alt="ScoreKeeper"/>
+                </div>
+                <div className="hcard-info">
+                  <div className="hcard-title">ScoreKeeper</div>
+                  <div className="hcard-desc">Run Kumite and Kata scoring sessions, brackets, and divisions for your dojo class.</div>
+                  <div className="hcard-pills">
+                    <span className="hcard-pill">Kumite</span>
+                    <span className="hcard-pill">Kata</span>
+                    <span className="hcard-pill">Divisions</span>
+                    <span className="hcard-pill">WKF · NKF</span>
+                  </div>
+                </div>
+              </div>
+              <div className="hcard-footer">
+                <button className="hcard-btn" onClick={() => window.location.href="/rankkeeper-tournament.html"}>Enter ScoreKeeper →</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="home-foot">
+            <span>Signed in as {session.user.email} ·</span>
+            <button onClick={logout}>Sign out</button>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   return (
     <>
       <style>{styles}</style>
       <div className="rk-topbar">
         <span>Signed in as {session.user.email}</span>
+        <button onClick={() => setShowHome(true)}>⌂ Home</button>
         <button onClick={logout}>Log out</button>
       </div>
       <App />
