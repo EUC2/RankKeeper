@@ -218,6 +218,7 @@ export default function GradingApp() {
   // entry working selection
   const [selStudent, setSelStudent] = useState("");
   const [newName, setNewName] = useState("");
+  const [newStartRank, setNewStartRank] = useState("Beginner");
   const [overrideGrade, setOverrideGrade] = useState("");
   const [testDate, setTestDate] = useState(today());
   const [scores, setScores] = useState({}); // { itemId: "Pass"|"Refer"|"Fail" } — in-app data entry
@@ -298,8 +299,14 @@ export default function GradingApp() {
   const addStudent = () => {
     const name = newName.trim(); if (!name) return;
     const id = uid(); const r = [...roster, { id, name }];
-    setNewName(""); setSelStudent(id); setOverrideGrade("");
-    persistStudents(r, history);
+    let h = history;
+    if (newStartRank && newStartRank !== "Beginner") {
+      // Find the grade key whose .to matches the selected rank
+      const gKey = grades.find((k) => syllabus[k].to === newStartRank) || newStartRank;
+      h = [...history, { id: uid(), studentId: id, studentName: name, date: today(), grade: gKey, result: "Pass", rank: newStartRank, note: "starting rank" }];
+    }
+    setNewName(""); setNewStartRank("Beginner"); setSelStudent(id); setOverrideGrade("");
+    persistStudents(r, h);
   };
   const removeStudent = (id) => {
     const r = roster.filter((s) => s.id !== id); const h = history.filter((e) => e.studentId !== id);
@@ -355,8 +362,7 @@ export default function GradingApp() {
     else if (result === "Stripe") { entry.rank = currentRank(selStudent); entry.stripes = recStripes; }
     else entry.rank = currentRank(selStudent);
     entry.scores = { ...scores };
-    const newHistory = [...history, entry]
-    persistStudents(roster, newHistory);
+    persistStudents(roster, [...history, entry]);
     syncRankTest(entry).catch(() => {})
     setOverrideGrade(testingKey);
   };
@@ -508,6 +514,16 @@ export default function GradingApp() {
               <div style={{ display: "flex", gap: 8 }}>
                 <input className="ng-input" value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="New student name" onKeyDown={(e) => e.key === "Enter" && addStudent()} />
                 <button className="ng-btn ng-btn-ink" style={{ flex: "none" }} onClick={addStudent}><Plus size={16} /> Add</button>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <label className="lbl">Starting rank <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(default: Beginner / White belt)</span></label>
+                <div style={{ position: "relative" }}>
+                  <select className="ng-select" value={newStartRank} onChange={(e) => setNewStartRank(e.target.value)}>
+                    <option value="Beginner">Beginner (White belt)</option>
+                    {grades.map((g) => <option key={g} value={syllabus[g].to}>{syllabus[g].to}</option>)}
+                  </select>
+                  <ChevronDown size={16} style={{ position: "absolute", right: 11, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                </div>
               </div>
             </div>
 
