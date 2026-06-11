@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { Settings, ClipboardList, Printer, Plus, Trash2, RotateCcw, Check, ChevronDown, UserRound, Eraser, GraduationCap, Mail, ChevronRight, CircleCheck, Upload, Download } from "lucide-react";
+import { syncRoster, syncRankTest } from './supabaseSync'
 
 /* ====================================================================
    JKA HQ Kyu/Dan Grading Guideline (effective 1 April 2017)
@@ -261,6 +262,7 @@ export default function GradingApp() {
   const persistStudents = async (r, h) => {
     setRoster(r); setHistory(h);
     if (hasStore()) { setStatus("saving"); const ok = await saveKey("gsb:students", { roster: r, history: h }); setStatus(ok ? "saved" : "local"); }
+    syncRoster(r, h).catch(() => {})
   };
 
   /* ---- syllabus editing ---- */
@@ -353,7 +355,9 @@ export default function GradingApp() {
     else if (result === "Stripe") { entry.rank = currentRank(selStudent); entry.stripes = recStripes; }
     else entry.rank = currentRank(selStudent);
     entry.scores = { ...scores };
-    persistStudents(roster, [...history, entry]);
+    const newHistory = [...history, entry]
+    persistStudents(roster, newHistory);
+    syncRankTest(entry).catch(() => {})
     setOverrideGrade(testingKey);
   };
 
