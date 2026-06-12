@@ -384,6 +384,7 @@ export default function GradingApp() {
   const addStudent = () => {
     const name = newName.trim(); if (!name) return;
     const dob = parseDob(newDob) || null;
+    if (!dob) { alert("Please enter a date of birth (MM/DD/YYYY)."); return; }
     const id = uid(); const r = [...roster, { id, name, dob }];
     let h = history;
     if (newStartRank && newStartRank !== "Beginner") {
@@ -632,7 +633,7 @@ export default function GradingApp() {
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 80px", gap: 8, marginTop: 10 }}>
                 <div>
-                  <label className="lbl">Date of birth</label>
+                  <label className="lbl">Date of birth <span style={{ color: "var(--crimson)", fontWeight: 700 }}>*</span></label>
                   <input className="ng-input" value={newDob} onChange={(e) => setNewDob(formatDobInput(e.target.value))} placeholder="MM/DD/YYYY" maxLength={10} />
                 </div>
                 <div>
@@ -895,7 +896,6 @@ export default function GradingApp() {
                 <div className="ng-card" style={{ padding: 18 }}>
                   <label className="lbl">Record overall result (saves a dated line to their record)</label>
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-                    <button className="ng-btn ng-btn-ink" onClick={() => setPassConfirm({ targetRank: testing.to })}><CircleCheck size={15} /> Pass → {testing.to}</button>
                     <button className="ng-btn ng-btn-ghost" onClick={() => recordResult("Stripe")}>Stripe (½)</button>
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
                       <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 11px" }} onClick={() => setRecStripes((n) => Math.max(1, n - 1))}>−</button>
@@ -903,7 +903,8 @@ export default function GradingApp() {
                       <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 11px" }} onClick={() => setRecStripes((n) => Math.min(4, n + 1))}>+</button>
                     </span>
                     <button className="ng-btn ng-btn-ghost" onClick={() => recordResult("Refer")}>Refer</button>
-                    <button className="ng-btn ng-btn-primary" style={{ marginLeft: "auto" }} onClick={() => setScreen("print")}><Printer size={16} /> Print sheet</button>
+                    <button style={{ background: "#2F7D52", color: "#fff", border: "none", borderRadius: 10, padding: "9px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setPassConfirm({ targetRank: testing.to })}><CircleCheck size={15} /> Pass → {rankLabel(testing.to)}</button>
+                    <button className="ng-btn ng-btn-primary" style={{ marginLeft: "auto" }} onClick={() => setScreen("print")}><Printer size={16} /> Print</button>
                   </div>
                   <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "8px 0 0" }}>The Pass / Refer / Fail marks above carry onto the printed sheet — the chosen result is circled. Anything left unmarked prints blank to circle by hand.</p>
                 </div>
