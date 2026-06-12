@@ -490,7 +490,7 @@ export default function GradingApp() {
     const student = roster.find((r) => r.id === selStudent);
     const L = [];
     L.push(`${sensei.dojo || "[Dojo]"} — Grading Sheet`); L.push(`${sensei.system}`);
-    L.push(`Grading: promotion from ${testing.from} to ${testing.to}`);
+    L.push(`Grading: promotion from ${rankLabel(testing.from)} to ${rankLabel(testing.to)}`);
     if (testing.dan) L.push(`Eligibility: ${testing.dan}`);
     L.push(`Examiner: ${[sensei.title, sensei.name].filter(Boolean).join(" ") || "____"}    Date: ${testDate}`);
     L.push(`Student: ${student ? student.name : "____"}`); L.push("");
@@ -502,7 +502,7 @@ export default function GradingApp() {
     return L.join("\n");
   }, [testing, selStudent, sensei, testDate, roster]);
   const sendEmail = () => {
-    const subj = `${sensei.dojo || "Dojo"} Grading Sheet \u2014 ${testing ? testing.to : ""}`;
+    const subj = `${sensei.dojo || "Dojo"} Grading Sheet \u2014 ${testing ? rankLabel(testing.to) : ""}`;
     window.location.href = `mailto:?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(emailBody)}`;
   };
 
@@ -732,7 +732,7 @@ export default function GradingApp() {
                                   <label className="lbl">Grade override</label>
                                   <div style={{ position: "relative" }}>
                                     <select className="ng-select" style={{ padding: "8px 10px", fontSize: 13 }} value={overrideGrade || (nextGradeKey(s.id) || "")} onChange={(e) => { setOverrideGrade(e.target.value); setScores({}); }}>
-                                      {gradesDesc.map((g) => <option key={g} value={g}>{g}</option>)}
+                                      {gradesDesc.map((g) => <option key={g} value={g}>{rankLabel(syllabus[g].to)}</option>)}
                                     </select>
                                     <ChevronDown size={14} style={{ position: "absolute", right: 8, top: 11, pointerEvents: "none", color: "var(--ink-soft)" }} />
                                   </div>
@@ -923,7 +923,7 @@ export default function GradingApp() {
                       </div>
                       {passConfirm.targetRank !== testing.to && (
                         <div style={{ background: "#FEF3C7", border: "0.5px solid #F59E0B", borderRadius: 10, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#92400E" }}>
-                          ⚠️ Skipping belt — standard next rank is {testing.to}
+                          ⚠️ Skipping belt — standard next rank is {rankLabel(testing.to)}
                         </div>
                       )}
                       <div style={{ display: "flex", gap: 8 }}>
@@ -961,9 +961,9 @@ export default function GradingApp() {
                     <div>
                       <div style={{ fontSize: 11.5, letterSpacing: ".18em", color: "var(--crimson)", fontWeight: 700 }}>{sensei.system.toUpperCase()}</div>
                       <h2 className="ng-serif" style={{ fontSize: 25, fontWeight: 700, margin: "3px 0 0" }}>Grading Sheet</h2>
-                      <div style={{ fontSize: 14.5, color: "var(--ink-soft)", marginTop: 2 }}>Promotion from {testing.from} to {testing.to}</div>
+                      <div style={{ fontSize: 14.5, color: "var(--ink-soft)", marginTop: 2 }}>Promotion from {rankLabel(testing.from)} to {rankLabel(testing.to)}</div>
                     </div>
-                    <div className="stamp">{testing.to}</div>
+                    <div className="stamp">{rankLabel(testing.to)}</div>
                   </div>
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "4px 24px", marginTop: 15, fontSize: 13.5, borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)", padding: "10px 0" }}>
