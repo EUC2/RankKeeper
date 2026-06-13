@@ -230,6 +230,7 @@ export default function GradingApp() {
   const [newDob, setNewDob] = useState("");
   const [newStartRank, setNewStartRank] = useState("Beginner");
   const [newStripes, setNewStripes] = useState(0);
+  const [newBeltColor, setNewBeltColor] = useState("White");
   const [editingStudent, setEditingStudent] = useState(null);
   const [passConfirm, setPassConfirm] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // studentId to delete
@@ -405,6 +406,35 @@ export default function GradingApp() {
   const bdc = (r) => BELT_DOT_COLOR[r] || "#999";
   const rankLabel = (r) => RANK_BELT_LABEL[r] || r;
 
+  // Available belt colors for the independent color selector
+  const BELT_COLORS = [
+    {name:"White",  hex:"#F5F5F5"},
+    {name:"Orange", hex:"#E67E22"},
+    {name:"Red",    hex:"#CC4444"},
+    {name:"Yellow", hex:"#F4D03F"},
+    {name:"Green",  hex:"#27AE60"},
+    {name:"Blue",   hex:"#2980B9"},
+    {name:"Purple", hex:"#8E44AD"},
+    {name:"Brown",  hex:"#7B4B2A"},
+    {name:"Black",  hex:"#1a1a1a"},
+  ];
+  const beltHex = (name) => BELT_COLORS.find(b=>b.name===name)?.hex || "#999";
+
+  // Default belt color name for a given rank key (JKA Shotokan; user can override)
+  const RANK_TO_BELT = {
+    "Beginner":"White","10th Kyu":"White","9th Kyu":"Orange","8th Kyu":"Red",
+    "7th Kyu":"Yellow","6th Kyu":"Green","5th Kyu":"Blue","4th Kyu":"Purple",
+    "3rd Kyu":"Brown","2nd Kyu":"Brown","1st Kyu":"Brown",
+    "Shodan":"Black","Nidan":"Black","Sandan":"Black","Yondan":"Black",
+    "Godan":"Black","Rokudan":"Black","Shichidan":"Black","Hachidan":"Black","Kudan":"Black",
+  };
+
+  // Student belt color: use stored beltColor from roster if set, else derive from rank
+  const sbc = (sid) => {
+    const s = roster.find(r=>r.id===sid);
+    return s?.beltColor ? beltHex(s.beltColor) : bdc(currentRank(sid));
+  };
+
   const nextGradeKey = (sid) => { const cur = currentRank(sid); return grades.find((k) => syllabus[k].from === cur) || null; };
 
   const testingKey = selStudent ? (overrideGrade || nextGradeKey(selStudent)) : (overrideGrade || editGrade);
@@ -414,7 +444,7 @@ export default function GradingApp() {
     const name = newName.trim(); if (!name) return;
     const dob = parseDob(newDob) || null;
     if (!dob) { alert("Please enter a date of birth (MM/DD/YYYY)."); return; }
-    const id = uid(); const r = [...roster, { id, name, dob }];
+    const id = uid(); const r = [...roster, { id, name, dob, beltColor: newBeltColor || RANK_TO_BELT[newStartRank] || "White" }];
     let h = history;
     if (newStartRank && newStartRank !== "Beginner") {
       const gKey = grades.find((k) => syllabus[k].to === newStartRank) || newStartRank;
@@ -423,7 +453,7 @@ export default function GradingApp() {
         h = [...h, { id: uid(), studentId: id, studentName: name, date: today(), grade: gKey, result: "Stripe", rank: newStartRank, stripes: newStripes, note: "starting stripes" }];
       }
     }
-    setNewName(""); setNewDob(""); setNewStartRank("Beginner"); setNewStripes(0); setSelStudent(id); setOverrideGrade("");
+    setNewName(""); setNewDob(""); setNewStartRank("Beginner"); setNewStripes(0); setNewBeltColor("White"); setSelStudent(id); setOverrideGrade("");
     persistStudents(r, h);
   };
   const removeStudent = (id) => {
@@ -434,7 +464,7 @@ export default function GradingApp() {
   const saveEditStudent = () => {
     if (!editingStudent || !editingStudent.name.trim()) return;
     const dob = parseDob(editingStudent.dob) || editingStudent.dob || null;
-    const r = roster.map((s) => s.id === editingStudent.id ? { ...s, name: editingStudent.name.trim(), dob } : s);
+    const r = roster.map((s) => s.id === editingStudent.id ? { ...s, name: editingStudent.name.trim(), dob, beltColor: editingStudent.beltColor || s.beltColor } : s);
     let h = history.map((e) => e.studentId === editingStudent.id ? { ...e, studentName: editingStudent.name.trim() } : e);
     // If sensei overrode the rank, add a correction entry to history
     if (editingStudent.rankOverride) {
@@ -690,28 +720,40 @@ export default function GradingApp() {
                   <input className="ng-input" value={newDob && parseDob(newDob).length === 10 ? (calcAge(parseDob(newDob)) ?? '') : ''} readOnly style={{ background: "var(--paper2)", color: "var(--ink-soft)", cursor: "not-allowed" }} placeholder="Auto" />
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 10, alignItems: "end" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
                 <div>
-                  <label className="lbl">Starting rank <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(default: White)</span></label>
+                  <label className="lbl">Starting rank</label>
                   <div style={{ position: "relative" }}>
-                    <select className="ng-select" value={newStartRank} onChange={(e) => { setNewStartRank(e.target.value); setNewStripes(0); }}>
+                    <select className="ng-select" value={newStartRank} onChange={(e) => { setNewStartRank(e.target.value); setNewBeltColor(RANK_TO_BELT[e.target.value] || "White"); setNewStripes(0); }}>
                       <option value="Beginner">Beginner</option>
                       {grades.map((g) => <option key={g} value={syllabus[g].to}>{rankLabel(syllabus[g].to)}</option>)}
                     </select>
                     <ChevronDown size={16} style={{ position: "absolute", right: 11, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
                   </div>
                 </div>
-                {newStartRank === "1st Kyu" && (
-                  <div style={{ minWidth: 90 }}>
-                    <label className="lbl">Stripes</label>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 10px" }} onClick={() => setNewStripes(n => Math.max(0,n-1))}>−</button>
-                      <div style={{ width: 28, textAlign: "center", fontWeight: 600 }}>{newStripes}</div>
-                      <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 10px" }} onClick={() => setNewStripes(n => Math.min(3,n+1))}>+</button>
+                <div>
+                  <label className="lbl">Belt color</label>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <select className="ng-select" value={newBeltColor} onChange={(e) => setNewBeltColor(e.target.value)}>
+                        {BELT_COLORS.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                      </select>
+                      <ChevronDown size={16} style={{ position: "absolute", right: 11, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
                     </div>
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: beltHex(newBeltColor), border: "1px solid rgba(0,0,0,0.15)", flexShrink: 0 }} />
                   </div>
-                )}
+                </div>
               </div>
+              {newStartRank === "1st Kyu" && (
+                <div style={{ marginTop: 8 }}>
+                  <label className="lbl">Stripes</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 14px" }} onClick={() => setNewStripes(n => Math.max(0,n-1))}>−</button>
+                    <div style={{ width: 32, textAlign: "center", fontWeight: 600 }}>{newStripes}</div>
+                    <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 14px" }} onClick={() => setNewStripes(n => Math.min(3,n+1))}>+</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Roster grouped by division */}
@@ -750,7 +792,7 @@ export default function GradingApp() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 15, fontWeight: 500 }}>{s.name}</div>
                               <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
-                                <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: bdc(rank), border: "0.5px solid rgba(0,0,0,0.12)" }} />
+                                <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: sbc(s.id), border: "0.5px solid rgba(0,0,0,0.12)" }} />
                                 {rankLabel(rank)}{stripes > 0 && <span style={{ background: "#FEF3C7", color: "#92400E", border: "0.5px solid #F59E0B", borderRadius: 10, fontSize: 10, fontWeight: 500, padding: "1px 6px", marginLeft: 4 }}>{stripes === 1 ? "stripe" : `${stripes} stripes`}</span>}
                                 {s.dob && <span style={{ color: "var(--ink-soft)" }}> · Age {calcAge(s.dob)}</span>}
                               </div>
@@ -766,7 +808,7 @@ export default function GradingApp() {
                               <div style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--paper2)", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
                                 <div>
                                   <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>CURRENT</div>
-                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, display:"flex", alignItems:"center" }}><span style={{ display:"inline-block",width:10,height:10,borderRadius:"50%",marginRight:6,flexShrink:0,border:"0.5px solid rgba(0,0,0,0.12)",verticalAlign:"middle", background: bdc(rank) }} />{rankLabel(rank)}{stripes > 0 && <span style={{ color: "var(--crimson)", fontSize: 12 }}> · {stripes === 1 ? "stripe" : `${stripes} stripes`}</span>}</div>
+                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, display:"flex", alignItems:"center" }}><span style={{ display:"inline-block",width:10,height:10,borderRadius:"50%",marginRight:6,flexShrink:0,border:"0.5px solid rgba(0,0,0,0.12)",verticalAlign:"middle", background: sbc(s.id) }} />{rankLabel(rank)}{stripes > 0 && <span style={{ color: "var(--crimson)", fontSize: 12 }}> · {stripes === 1 ? "stripe" : `${stripes} stripes`}</span>}</div>
                                 </div>
                                 <ChevronRight size={16} style={{ color: "var(--crimson)", flexShrink: 0 }} />
                                 <div>
@@ -795,7 +837,7 @@ export default function GradingApp() {
                               {/* Actions */}
                               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
                                 <button className="ng-btn ng-btn-primary" style={{ fontSize: 13, padding: "9px 14px" }} onClick={() => setScreen("assess")} disabled={!testing}><ClipboardList size={14} /> Assess</button>
-                                <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setEditingStudent(editingStudent?.id === s.id ? null : { id: s.id, name: s.name, dob: s.dob || '', belt: '' })}><UserRound size={13} /> Edit</button>
+                                <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setEditingStudent(editingStudent?.id === s.id ? null : { id: s.id, name: s.name, dob: s.dob || '', belt: '', beltColor: s.beltColor || RANK_TO_BELT[currentRank(s.id)] || 'White' })}><UserRound size={13} /> Edit</button>
                                 <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setScreen("print")} disabled={!testing}><Printer size={13} /> Sheet</button>
                               </div>
 
@@ -817,19 +859,33 @@ export default function GradingApp() {
                                       <input className="ng-input" value={calcAge(editingStudent.dob) ?? ''} readOnly style={{ background: "#eee", color: "var(--ink-soft)", cursor: "not-allowed" }} placeholder="—" />
                                     </div>
                                   </div>
-                                  <div style={{ marginBottom: 12 }}>
-                                    <label className="lbl">Current belt rank</label>
-                                    <div style={{ position: "relative" }}>
-                                      <select className="ng-select" value={editingStudent.rankOverride || ''} onChange={(e) => setEditingStudent({ ...editingStudent, rankOverride: e.target.value, editStripes: 0 })}>
-                                        <option value="">— no change —</option>
-                                        <optgroup label="Kyu ranks (colored belts)">
-                                          {["10th Kyu","9th Kyu","8th Kyu","7th Kyu","6th Kyu","5th Kyu","4th Kyu","3rd Kyu","2nd Kyu","1st Kyu"].map(k => <option key={k} value={k}>{rankLabel(k)}</option>)}
-                                        </optgroup>
-                                        <optgroup label="Dan ranks (black belt)">
-                                          {["Shodan","Nidan","Sandan","Yondan","Godan","Rokudan","Shichidan","Hachidan","Kudan"].map(k => <option key={k} value={k}>{rankLabel(k)}</option>)}
-                                        </optgroup>
-                                      </select>
-                                      <ChevronDown size={14} style={{ position: "absolute", right: 10, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                                    <div>
+                                      <label className="lbl">Rank</label>
+                                      <div style={{ position: "relative" }}>
+                                        <select className="ng-select" value={editingStudent.rankOverride || ''} onChange={(e) => { const nr=e.target.value; setEditingStudent({ ...editingStudent, rankOverride: nr, editStripes: 0, beltColor: nr ? (RANK_TO_BELT[nr] || editingStudent.beltColor) : editingStudent.beltColor }); }}>
+                                          <option value="">— no change —</option>
+                                          <optgroup label="Kyu">
+                                            {["10th Kyu","9th Kyu","8th Kyu","7th Kyu","6th Kyu","5th Kyu","4th Kyu","3rd Kyu","2nd Kyu","1st Kyu"].map(k => <option key={k} value={k}>{rankLabel(k)}</option>)}
+                                          </optgroup>
+                                          <optgroup label="Dan">
+                                            {["Shodan","Nidan","Sandan","Yondan","Godan","Rokudan","Shichidan","Hachidan","Kudan"].map(k => <option key={k} value={k}>{rankLabel(k)}</option>)}
+                                          </optgroup>
+                                        </select>
+                                        <ChevronDown size={14} style={{ position: "absolute", right: 10, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="lbl">Belt color</label>
+                                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                        <div style={{ position: "relative", flex: 1 }}>
+                                          <select className="ng-select" value={editingStudent.beltColor || 'White'} onChange={(e) => setEditingStudent({ ...editingStudent, beltColor: e.target.value })}>
+                                            {BELT_COLORS.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                          </select>
+                                          <ChevronDown size={14} style={{ position: "absolute", right: 10, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                                        </div>
+                                        <div style={{ width: 26, height: 26, borderRadius: "50%", background: beltHex(editingStudent.beltColor || 'White'), border: "1px solid rgba(0,0,0,0.15)", flexShrink: 0 }} />
+                                      </div>
                                     </div>
                                   </div>
                                   {(editingStudent.rankOverride === "1st Kyu" || (!editingStudent.rankOverride && currentRank(s.id) === "1st Kyu")) && (
