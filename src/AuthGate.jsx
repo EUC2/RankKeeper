@@ -25,6 +25,7 @@ const styles = `
 .rk-topbar { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; background: ${paper}; border-bottom: 1px solid #e0dacd; font-family: 'Zen Kaku Gothic New', system-ui, sans-serif; font-size: 13px; color: ${muted}; }
 .rk-topbar button { background: none; border: 1px solid #d8d2c5; border-radius: 8px; padding: 5px 12px; font-size: 13px; cursor: pointer; color: ${ink}; font-family: inherit; }
 .rk-center { min-height: 100vh; background: ${paper}; display: flex; align-items: center; justify-content: center; font-family: 'Zen Kaku Gothic New', system-ui, sans-serif; color: ${muted}; }
+@media print { .rk-topbar { display: none !important; } }
 `;
 
 export default function AuthGate() {
