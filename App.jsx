@@ -333,6 +333,12 @@ export default function GradingApp() {
     if (hasStore()) { setStatus("saving"); const ok = await saveKey("gsb:students", { roster: r, history: h }); setStatus(ok ? "saved" : "local"); }
     syncRoster(r, h).catch(() => {})
   };
+  // Save sensei settings immediately (used by scoring toggle so it persists on the spot)
+  const setScoring = async (mode) => {
+    const updated = { ...sensei, scoring: mode };
+    setSensei(updated);
+    if (hasStore()) { await saveKey("gsb:sensei", updated); setStatus("saved"); }
+  };
 
   /* ---- syllabus editing ---- */
   const mutate = (fn) => setSyllabus((s) => {
@@ -637,8 +643,8 @@ export default function GradingApp() {
                   <div>
                     <label className="lbl">Sheet scoring</label>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button className={`ng-chip ${sensei.scoring === "passrefer" ? "ng-chip-on" : ""}`} onClick={() => setSensei({ ...sensei, scoring: "passrefer" })}>Circle P/R/F</button>
-                      <button className={`ng-chip ${sensei.scoring === "score10" ? "ng-chip-on" : ""}`} onClick={() => setSensei({ ...sensei, scoring: "score10" })}>Score /10</button>
+                      <button className={`ng-chip ${sensei.scoring === "passrefer" ? "ng-chip-on" : ""}`} onClick={() => setScoring("passrefer")}>Circle P/R/F</button>
+                      <button className={`ng-chip ${sensei.scoring === "score10" ? "ng-chip-on" : ""}`} onClick={() => setScoring("score10")}>Score /10</button>
                     </div>
                   </div>
                 </div>
@@ -966,9 +972,15 @@ export default function GradingApp() {
               <>
                 <div className="ng-card" style={{ padding: 18 }}>
                   <SectionTitle title="Assessment" sub={`${(roster.find((r) => r.id === selStudent) || {}).name || "Student"} · testing for ${rankLabel(testing.to)} · ${testDate}`} />
-                  <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                    <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores(allItems(testing).reduce((a, id) => ({ ...a, [id]: "Pass" }), {}))}>Mark all Pass</button>
+                  <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+                    <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores(allItems(testing).reduce((a, id) => ({ ...a, [id]: sensei.scoring === "score10" ? 10 : "Pass" }), {}))}>
+                      {sensei.scoring === "score10" ? "Mark all 10" : "Mark all Pass"}
+                    </button>
                     <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores({})}>Clear</button>
+                    <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>
+                      <button className={`ng-chip ${sensei.scoring === "passrefer" ? "ng-chip-on" : ""}`} style={{ padding: "6px 11px", fontSize: 12 }} onClick={() => setScoring("passrefer")}>P/R/F</button>
+                      <button className={`ng-chip ${sensei.scoring === "score10" ? "ng-chip-on" : ""}`} style={{ padding: "6px 11px", fontSize: 12 }} onClick={() => setScoring("score10")}>/10</button>
+                    </div>
                   </div>
                 </div>
 
@@ -982,13 +994,23 @@ export default function GradingApp() {
                         {items.map((it) => (
                           <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingBottom: 7, borderBottom: "1px dotted var(--line)" }}>
                             <span style={{ flex: 1, minWidth: 150, fontSize: 13.5 }}>{it.text}</span>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              {["Pass", "Refer", "Fail"].map((r) => {
-                                const on = scores[it.id] === r;
-                                const col = r === "Pass" ? "#2F7D52" : r === "Refer" ? "#B08B3E" : "#A8322A";
-                                return <button key={r} onClick={() => setScores((s) => ({ ...s, [it.id]: on ? undefined : r }))}
-                                  style={{ border: `1.5px solid ${on ? col : "var(--line)"}`, background: on ? col : "#fff", color: on ? "#fff" : "var(--ink-soft)", borderRadius: 999, padding: "6px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{r}</button>;
-                              })}
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              {sensei.scoring === "score10" ? (
+                                <input
+                                  type="number" min="0" max="10" step="0.5"
+                                  value={scores[it.id] ?? ""}
+                                  onChange={(e) => setScores((s) => ({ ...s, [it.id]: e.target.value !== "" ? parseFloat(e.target.value) : undefined }))}
+                                  placeholder="—"
+                                  style={{ width: 68, padding: "6px 8px", borderRadius: 8, border: `1.5px solid ${scores[it.id] != null ? "var(--indigo)" : "var(--line)"}`, fontSize: 14, fontWeight: 600, textAlign: "center", fontFamily: "inherit", background: scores[it.id] != null ? "#EEF2FF" : "#fff", color: "var(--ink)" }}
+                                />
+                              ) : (
+                                ["Pass", "Refer", "Fail"].map((r) => {
+                                  const on = scores[it.id] === r;
+                                  const col = r === "Pass" ? "#2F7D52" : r === "Refer" ? "#B08B3E" : "#A8322A";
+                                  return <button key={r} onClick={() => setScores((s) => ({ ...s, [it.id]: on ? undefined : r }))}
+                                    style={{ border: `1.5px solid ${on ? col : "var(--line)"}`, background: on ? col : "#fff", color: on ? "#fff" : "var(--ink-soft)", borderRadius: 999, padding: "6px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{r}</button>;
+                                })
+                              )}
                             </div>
                           </div>
                         ))}
@@ -1010,7 +1032,7 @@ export default function GradingApp() {
                     <button style={{ background: "#2F7D52", color: "#fff", border: "none", borderRadius: 10, padding: "9px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setPassConfirm({ targetRank: testing.to })}><CircleCheck size={15} /> Pass → {rankLabel(testing.to)}</button>
                     <button className="ng-btn ng-btn-primary" style={{ marginLeft: "auto" }} onClick={() => setScreen("print")}><Printer size={16} /> Print</button>
                   </div>
-                  <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "8px 0 0" }}>The Pass / Refer / Fail marks above carry onto the printed sheet — the chosen result is circled. Anything left unmarked prints blank to circle by hand.</p>
+                  <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "8px 0 0" }}>{sensei.scoring === "score10" ? "Scores entered above carry to the printed sheet. Blank items print as ____ / 10 to fill in by hand." : "Pass / Refer / Fail marks carry to the printed sheet — the chosen result is circled. Blank items print with circles to mark by hand."}</p>
                 </div>
 
                 {/* Pass confirmation sheet */}
@@ -1090,7 +1112,7 @@ export default function GradingApp() {
                             <span>{it.text}</span>
                             <span className="circle-opt">{sensei.scoring === "passrefer"
                               ? ["Pass", "Refer", "Fail"].map((r) => <span key={r} className={scores[it.id] === r ? "opt-pick" : ""}>{r}</span>)
-                              : "____ / 10"}</span>
+                              : scores[it.id] != null ? <strong style={{ fontSize: 16 }}>{scores[it.id]} / 10</strong> : "____ / 10"}</span>
                           </div>
                         ))}
                       </div>
