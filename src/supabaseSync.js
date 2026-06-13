@@ -5,12 +5,15 @@ import { supabase as db } from './supabaseClient.js'
 
 const RANK_TO_BELT = {
   'Beginner':  'White',
-  '10th Kyu':  'White',  '9th Kyu':   'White',
-  '8th Kyu':   'Yellow', '7th Kyu':   'Yellow',
-  '6th Kyu':   'Orange', '5th Kyu':   'Orange',
-  '4th Kyu':   'Green',
-  '3rd Kyu':   'Blue',
-  '2nd Kyu':   'Purple',
+  '10th Kyu':  'White',
+  '9th Kyu':   'Orange',  // JKA
+  '8th Kyu':   'Red',     // JKA
+  '7th Kyu':   'Yellow',
+  '6th Kyu':   'Green',   // JKA
+  '5th Kyu':   'Blue',    // JKA
+  '4th Kyu':   'Purple',  // JKA
+  '3rd Kyu':   'Brown',
+  '2nd Kyu':   'Brown',
   '1st Kyu':   'Brown',
   'Shodan':    'Black',  'Nidan':     'Black',
   'Sandan':    'Black',  'Yondan':    'Black',
@@ -52,7 +55,8 @@ export async function syncRoster(roster, history) {
   })
 
   for (const s of roster) {
-    const belt = rankToBelt(rankOf[s.id] || 'Beginner')
+    // Use the user-set beltColor if present; otherwise derive from rank (JKA defaults)
+    const belt = s.beltColor || rankToBelt(rankOf[s.id] || 'Beginner')
     await db.from('students').upsert(
       {
         app_id:     s.id,
@@ -95,8 +99,9 @@ export async function syncRankTest(entry) {
   })
 
   if (result === 'pass') {
+    // Update has_stripe only — belt color is managed separately by the user
+    // (don't overwrite with rank-derived default; user may have customised it)
     await db.from('students').update({
-      belt:       rankToBelt(entry.rank),
       has_stripe: false,
     }).eq('app_id', entry.studentId)
   }
@@ -130,8 +135,13 @@ export async function loadFromSupabase() {
 
   if (tErr) console.error('[sync] rank_tests fetch error:', tErr)
 
-  // Include dob in roster so cross-device gets full student data
-  const roster = students.map(s => ({ id: s.app_id || s.id, name: s.name, dob: s.dob || null }))
+  // Include dob and belt color in roster so cross-device gets full student data
+  const roster = students.map(s => ({
+    id:        s.app_id || s.id,
+    name:      s.name,
+    dob:       s.dob || null,
+    beltColor: s.belt || null,   // restore user-set belt color on new devices/browsers
+  }))
 
   const history = (tests || []).map(t => {
     const student = students.find(s => s.id === t.student_id)
