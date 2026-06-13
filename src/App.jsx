@@ -158,12 +158,13 @@ const css = `
 .stamp{ border:2px solid var(--crimson); color:var(--crimson); border-radius:8px; font-family:'Shippori Mincho',serif; font-weight:700; padding:5px 11px; transform:rotate(-3deg); display:inline-block; font-size:13px; }
 .dan-note{ background:#FBF6EC; border:1px solid var(--gold); border-radius:8px; padding:9px 12px; font-size:12.5px; color:#6B541F; }
 .sig-line{ font-family:'Caveat',cursive; font-size:30px; line-height:1; color:var(--ink); }
+@page{ margin:0; }
 @media print{
   .no-print{ display:none !important; }
-  .ng-root{ background:#fff !important; }
+  .ng-root{ background:#fff !important; min-height:unset; }
   .sheet{ box-shadow:none !important; border:none !important; }
-  .print-area{ margin:0 !important; max-width:none !important; }
-  @page{ margin:13mm; }
+  .print-area{ margin:0 !important; padding:13mm !important; max-width:none !important; }
+  body{ margin:0 !important; }
 }
 @media (min-width:820px){ .two-col{ grid-template-columns:1fr 1fr !important; } }
 `;
@@ -216,7 +217,7 @@ export default function GradingApp() {
   const [ready, setReady] = useState(false);
   const [status, setStatus] = useState("idle"); // idle|saving|saved|local
 
-  const [sensei, setSensei] = useState({ name: "", title: "Sensei", dojo: "", system: "JKA Shotokan", scoring: "passrefer", signature: "" });
+  const [sensei, setSensei] = useState({ name: "", title: "Sensei", dojo: "", system: "JKA Shotokan", scoring: "passrefer", customScoreLabels: ["+++", "++", "+"], signature: "" });
   const [syllabus, setSyllabus] = useState(() => buildSyllabus(PRESETS["JKA Shotokan"].grades));
   const [roster, setRoster] = useState([]);     // [{id, name}]
   const [history, setHistory] = useState([]);   // [{id, studentId, studentName, date, grade, result, rank, stripes}]
@@ -229,6 +230,7 @@ export default function GradingApp() {
   const [newDob, setNewDob] = useState("");
   const [newStartRank, setNewStartRank] = useState("Beginner");
   const [newStripes, setNewStripes] = useState(0);
+  const [newBeltColor, setNewBeltColor] = useState("White");
   const [editingStudent, setEditingStudent] = useState(null);
   const [passConfirm, setPassConfirm] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null); // studentId to delete
@@ -331,6 +333,17 @@ export default function GradingApp() {
     if (hasStore()) { setStatus("saving"); const ok = await saveKey("gsb:students", { roster: r, history: h }); setStatus(ok ? "saved" : "local"); }
     syncRoster(r, h).catch(() => {})
   };
+  // Save sensei settings immediately (used by scoring toggle + label edits)
+  const setScoring = async (mode, labels) => {
+    const defaultLabels = sensei.customScoreLabels?.length ? sensei.customScoreLabels : ["+++", "++", "+"];
+    const updated = {
+      ...sensei,
+      scoring: mode,
+      customScoreLabels: labels !== undefined ? labels : (mode === "custom" && !sensei.customScoreLabels?.length ? ["+++", "++", "+"] : defaultLabels),
+    };
+    setSensei(updated);
+    if (hasStore()) { await saveKey("gsb:sensei", updated); setStatus("saved"); }
+  };
 
   /* ---- syllabus editing ---- */
   const mutate = (fn) => setSyllabus((s) => {
@@ -358,23 +371,80 @@ export default function GradingApp() {
     let n = 0; hs.forEach((e) => { if (e.result === "Pass") n = 0; else if (e.result === "Stripe") n += (e.stripes || 1); }); return n;
   };
 
-  // Returns "9th Kyu — White" style label for any rank
+  // Rank text labels — rank name only, NO color embedded.
+  // Belt color is shown separately via the colored dot (bdc function below).
   const RANK_BELT_LABEL = {
-    "Beginner": "Beginner — White",
-    "10th Kyu": "10th Kyu — White", "9th Kyu": "9th Kyu — White",
-    "8th Kyu": "8th Kyu — Yellow", "7th Kyu": "7th Kyu — Yellow",
-    "6th Kyu": "6th Kyu — Orange", "5th Kyu": "5th Kyu — Orange",
-    "4th Kyu": "4th Kyu — Green",
-    "3rd Kyu": "3rd Kyu — Blue",
-    "2nd Kyu": "2nd Kyu — Purple",
-    "1st Kyu": "1st Kyu — Brown",
-    "Shodan": "1st Dan — Shodan", "Nidan": "2nd Dan — Nidan",
-    "Sandan": "3rd Dan — Sandan", "Yondan": "4th Dan — Yondan",
-    "Godan": "5th Dan — Godan", "Rokudan": "6th Dan — Rokudan",
-    "Shichidan": "7th Dan — Shichidan", "Hachidan": "8th Dan — Hachidan",
-    "Kudan": "9th Dan — Kudan",
+    "Beginner":  "Beginner",
+    "10th Kyu":  "10th Kyu",
+    "9th Kyu":   "9th Kyu",
+    "8th Kyu":   "8th Kyu",
+    "7th Kyu":   "7th Kyu",
+    "6th Kyu":   "6th Kyu",
+    "5th Kyu":   "5th Kyu",
+    "4th Kyu":   "4th Kyu",
+    "3rd Kyu":   "3rd Kyu",
+    "2nd Kyu":   "2nd Kyu",
+    "1st Kyu":   "1st Kyu",
+    "Shodan":    "1st Dan — Shodan",
+    "Nidan":     "2nd Dan — Nidan",
+    "Sandan":    "3rd Dan — Sandan",
+    "Yondan":    "4th Dan — Yondan",
+    "Godan":     "5th Dan — Godan",
+    "Rokudan":   "6th Dan — Rokudan",
+    "Shichidan": "7th Dan — Shichidan",
+    "Hachidan":  "8th Dan — Hachidan",
+    "Kudan":     "9th Dan — Kudan",
   };
+  // Belt dot hex colors (JKA Shotokan — referenced throughout the app)
+  const BELT_DOT_COLOR = {
+    "Beginner": "#F5F5F5",
+    "10th Kyu": "#F5F5F5",  // White
+    "9th Kyu":  "#E67E22",  // Orange
+    "8th Kyu":  "#CC4444",  // Red
+    "7th Kyu":  "#F4D03F",  // Yellow
+    "6th Kyu":  "#27AE60",  // Green
+    "5th Kyu":  "#2980B9",  // Blue
+    "4th Kyu":  "#8E44AD",  // Purple
+    "3rd Kyu":  "#7B4B2A",  // Brown
+    "2nd Kyu":  "#7B4B2A",  // Brown
+    "1st Kyu":  "#7B4B2A",  // Brown
+    "Shodan":   "#1a1a1a",  "Nidan":     "#1a1a1a",
+    "Sandan":   "#1a1a1a",  "Yondan":    "#1a1a1a",
+    "Godan":    "#1a1a1a",  "Rokudan":   "#1a1a1a",
+    "Shichidan":"#1a1a1a",  "Hachidan":  "#1a1a1a",
+    "Kudan":    "#1a1a1a",
+  };
+  const bdc = (r) => BELT_DOT_COLOR[r] || "#999";
   const rankLabel = (r) => RANK_BELT_LABEL[r] || r;
+
+  // Available belt colors for the independent color selector
+  const BELT_COLORS = [
+    {name:"White",  hex:"#F5F5F5"},
+    {name:"Orange", hex:"#E67E22"},
+    {name:"Red",    hex:"#CC4444"},
+    {name:"Yellow", hex:"#F4D03F"},
+    {name:"Green",  hex:"#27AE60"},
+    {name:"Blue",   hex:"#2980B9"},
+    {name:"Purple", hex:"#8E44AD"},
+    {name:"Brown",  hex:"#7B4B2A"},
+    {name:"Black",  hex:"#1a1a1a"},
+  ];
+  const beltHex = (name) => BELT_COLORS.find(b=>b.name===name)?.hex || "#999";
+
+  // Default belt color name for a given rank key (JKA Shotokan; user can override)
+  const RANK_TO_BELT = {
+    "Beginner":"White","10th Kyu":"White","9th Kyu":"Orange","8th Kyu":"Red",
+    "7th Kyu":"Yellow","6th Kyu":"Green","5th Kyu":"Blue","4th Kyu":"Purple",
+    "3rd Kyu":"Brown","2nd Kyu":"Brown","1st Kyu":"Brown",
+    "Shodan":"Black","Nidan":"Black","Sandan":"Black","Yondan":"Black",
+    "Godan":"Black","Rokudan":"Black","Shichidan":"Black","Hachidan":"Black","Kudan":"Black",
+  };
+
+  // Student belt color: use stored beltColor from roster if set, else derive from rank
+  const sbc = (sid) => {
+    const s = roster.find(r=>r.id===sid);
+    return s?.beltColor ? beltHex(s.beltColor) : bdc(currentRank(sid));
+  };
 
   const nextGradeKey = (sid) => { const cur = currentRank(sid); return grades.find((k) => syllabus[k].from === cur) || null; };
 
@@ -385,7 +455,7 @@ export default function GradingApp() {
     const name = newName.trim(); if (!name) return;
     const dob = parseDob(newDob) || null;
     if (!dob) { alert("Please enter a date of birth (MM/DD/YYYY)."); return; }
-    const id = uid(); const r = [...roster, { id, name, dob }];
+    const id = uid(); const r = [...roster, { id, name, dob, beltColor: newBeltColor || RANK_TO_BELT[newStartRank] || "White" }];
     let h = history;
     if (newStartRank && newStartRank !== "Beginner") {
       const gKey = grades.find((k) => syllabus[k].to === newStartRank) || newStartRank;
@@ -394,7 +464,7 @@ export default function GradingApp() {
         h = [...h, { id: uid(), studentId: id, studentName: name, date: today(), grade: gKey, result: "Stripe", rank: newStartRank, stripes: newStripes, note: "starting stripes" }];
       }
     }
-    setNewName(""); setNewDob(""); setNewStartRank("Beginner"); setNewStripes(0); setSelStudent(id); setOverrideGrade("");
+    setNewName(""); setNewDob(""); setNewStartRank("Beginner"); setNewStripes(0); setNewBeltColor("White"); setSelStudent(id); setOverrideGrade("");
     persistStudents(r, h);
   };
   const removeStudent = (id) => {
@@ -405,7 +475,7 @@ export default function GradingApp() {
   const saveEditStudent = () => {
     if (!editingStudent || !editingStudent.name.trim()) return;
     const dob = parseDob(editingStudent.dob) || editingStudent.dob || null;
-    const r = roster.map((s) => s.id === editingStudent.id ? { ...s, name: editingStudent.name.trim(), dob } : s);
+    const r = roster.map((s) => s.id === editingStudent.id ? { ...s, name: editingStudent.name.trim(), dob, beltColor: editingStudent.beltColor || s.beltColor } : s);
     let h = history.map((e) => e.studentId === editingStudent.id ? { ...e, studentName: editingStudent.name.trim() } : e);
     // If sensei overrode the rank, add a correction entry to history
     if (editingStudent.rankOverride) {
@@ -577,10 +647,34 @@ export default function GradingApp() {
                   </div>
                   <div>
                     <label className="lbl">Sheet scoring</label>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button className={`ng-chip ${sensei.scoring === "passrefer" ? "ng-chip-on" : ""}`} onClick={() => setSensei({ ...sensei, scoring: "passrefer" })}>Circle P/R/F</button>
-                      <button className={`ng-chip ${sensei.scoring === "score10" ? "ng-chip-on" : ""}`} onClick={() => setSensei({ ...sensei, scoring: "score10" })}>Score /10</button>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button className={`ng-chip ${sensei.scoring === "passrefer" ? "ng-chip-on" : ""}`} onClick={() => setScoring("passrefer")}>Circle P/R/F</button>
+                      <button className={`ng-chip ${sensei.scoring === "score10" ? "ng-chip-on" : ""}`} onClick={() => setScoring("score10")}>Score /10</button>
+                      <button className={`ng-chip ${sensei.scoring === "custom" ? "ng-chip-on" : ""}`} onClick={() => setScoring("custom")}>Custom</button>
                     </div>
+                    {sensei.scoring === "custom" && (
+                      <div style={{ marginTop: 12, background: "rgba(0,0,0,0.04)", borderRadius: 10, padding: "12px 12px 8px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-soft)", letterSpacing: ".04em", textTransform: "uppercase", flex: 1 }}>Score options</span>
+                          <span style={{ fontSize: 11, color: "var(--ink-soft)" }}>First = best</span>
+                          <button className="ng-btn ng-btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }} onClick={() => setScoring("custom", ["+++", "++", "+"])}>↺ Load +++</button>
+                          <button className="ng-btn ng-btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }} onClick={() => setScoring("custom", ["Pass", "Refer", "Fail"])}>↺ Load P/R/F</button>
+                        </div>
+                        {(sensei.customScoreLabels || ["+++", "++", "+"]).map((lbl, i, arr) => (
+                          <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                            <div style={{ width: 22, height: 22, borderRadius: "50%", background: i===0?"#2F7D52":i===arr.length-1?"#A8322A":"#B08B3E", flexShrink:0 }} />
+                            <input className="ng-input" style={{ padding: "7px 10px", fontSize: 13 }} value={lbl}
+                              onChange={(e) => { const u=[...(sensei.customScoreLabels||[])]; u[i]=e.target.value; setSensei(p=>({...p,customScoreLabels:u})); }} />
+                            {arr.length > 1 && (
+                              <button style={{ background:"none",border:"none",cursor:"pointer",color:"var(--crimson)",padding:4,fontSize:18,lineHeight:1 }}
+                                onClick={() => { const u=[...(sensei.customScoreLabels||[])]; u.splice(i,1); setScoring("custom",u); }}>×</button>
+                            )}
+                          </div>
+                        ))}
+                        <button className="ng-btn ng-btn-ghost" style={{ fontSize: 12, padding: "6px 10px", marginTop: 2, width: "100%" }}
+                          onClick={() => setScoring("custom", [...(sensei.customScoreLabels||[]), ""])}>+ Add option</button>
+                      </div>
+                    )}
                   </div>
                 </div>
                 {!PRESETS[sensei.system].complete && <div className="dan-note" style={{ borderColor: "var(--crimson)", background: "#FBEFEE", color: "var(--crimson-d)" }}>Starter shell — requirements aren't bundled for this system yet. Edit each grade below, or load its official syllabus.</div>}
@@ -661,28 +755,40 @@ export default function GradingApp() {
                   <input className="ng-input" value={newDob && parseDob(newDob).length === 10 ? (calcAge(parseDob(newDob)) ?? '') : ''} readOnly style={{ background: "var(--paper2)", color: "var(--ink-soft)", cursor: "not-allowed" }} placeholder="Auto" />
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 8, marginTop: 10, alignItems: "end" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 10 }}>
                 <div>
-                  <label className="lbl">Starting rank <span style={{ fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(default: White)</span></label>
+                  <label className="lbl">Starting rank</label>
                   <div style={{ position: "relative" }}>
-                    <select className="ng-select" value={newStartRank} onChange={(e) => { setNewStartRank(e.target.value); setNewStripes(0); }}>
-                      <option value="Beginner">Beginner — White</option>
+                    <select className="ng-select" value={newStartRank} onChange={(e) => { setNewStartRank(e.target.value); setNewBeltColor(RANK_TO_BELT[e.target.value] || "White"); setNewStripes(0); }}>
+                      <option value="Beginner">Beginner</option>
                       {grades.map((g) => <option key={g} value={syllabus[g].to}>{rankLabel(syllabus[g].to)}</option>)}
                     </select>
                     <ChevronDown size={16} style={{ position: "absolute", right: 11, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
                   </div>
                 </div>
-                {newStartRank === "1st Kyu" && (
-                  <div style={{ minWidth: 90 }}>
-                    <label className="lbl">Stripes</label>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                      <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 10px" }} onClick={() => setNewStripes(n => Math.max(0,n-1))}>−</button>
-                      <div style={{ width: 28, textAlign: "center", fontWeight: 600 }}>{newStripes}</div>
-                      <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 10px" }} onClick={() => setNewStripes(n => Math.min(3,n+1))}>+</button>
+                <div>
+                  <label className="lbl">Belt color</label>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <div style={{ position: "relative", flex: 1 }}>
+                      <select className="ng-select" value={newBeltColor} onChange={(e) => setNewBeltColor(e.target.value)}>
+                        {BELT_COLORS.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                      </select>
+                      <ChevronDown size={16} style={{ position: "absolute", right: 11, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
                     </div>
+                    <div style={{ width: 28, height: 28, borderRadius: "50%", background: beltHex(newBeltColor), border: "1px solid rgba(0,0,0,0.15)", flexShrink: 0 }} />
                   </div>
-                )}
+                </div>
               </div>
+              {newStartRank === "1st Kyu" && (
+                <div style={{ marginTop: 8 }}>
+                  <label className="lbl">Stripes</label>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 14px" }} onClick={() => setNewStripes(n => Math.max(0,n-1))}>−</button>
+                    <div style={{ width: 32, textAlign: "center", fontWeight: 600 }}>{newStripes}</div>
+                    <button className="ng-btn ng-btn-ghost" style={{ padding: "8px 14px" }} onClick={() => setNewStripes(n => Math.min(3,n+1))}>+</button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Roster grouped by division */}
@@ -691,9 +797,9 @@ export default function GradingApp() {
             )}
 
             {[
-              { label: "Beginner",     color: "#27AE60", ranks: ["Beginner","10th Kyu","9th Kyu","8th Kyu","7th Kyu","6th Kyu"] },
-              { label: "Intermediate", color: "#2980B9", ranks: ["5th Kyu","4th Kyu","3rd Kyu"] },
-              { label: "Advanced",     color: "#7B4B2A", ranks: ["2nd Kyu","1st Kyu","Shodan","Nidan","Sandan","Yondan","Godan","Rokudan","Shichidan","Hachidan","Kudan"] },
+              { label: "Beginner",     color: "#27AE60", ranks: ["Beginner","10th Kyu","9th Kyu","8th Kyu","7th Kyu","6th Kyu","5th Kyu"] },
+              { label: "Intermediate", color: "#2980B9", ranks: ["4th Kyu","3rd Kyu","2nd Kyu"] },
+              { label: "Advanced",     color: "#7B4B2A", ranks: ["1st Kyu","Shodan","Nidan","Sandan","Yondan","Godan","Rokudan","Shichidan","Hachidan","Kudan"] },
             ].map(div => {
               const group = roster.filter(s => div.ranks.includes(currentRank(s.id)))
               if (!group.length) return null
@@ -721,7 +827,7 @@ export default function GradingApp() {
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontSize: 15, fontWeight: 500 }}>{s.name}</div>
                               <div style={{ fontSize: 12.5, color: "var(--ink-soft)", marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}>
-                                <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: { Beginner:"#e8e8e8","10th Kyu":"#e8e8e8","9th Kyu":"#e8e8e8","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a","Rokudan":"#1a1a1a","Shichidan":"#1a1a1a","Hachidan":"#1a1a1a","Kudan":"#1a1a1a" }[rank]||"#999", border: "0.5px solid rgba(0,0,0,0.12)" }} />
+                                <span style={{ display: "inline-block", width: 9, height: 9, borderRadius: "50%", background: sbc(s.id), border: "0.5px solid rgba(0,0,0,0.12)" }} />
                                 {rankLabel(rank)}{stripes > 0 && <span style={{ background: "#FEF3C7", color: "#92400E", border: "0.5px solid #F59E0B", borderRadius: 10, fontSize: 10, fontWeight: 500, padding: "1px 6px", marginLeft: 4 }}>{stripes === 1 ? "stripe" : `${stripes} stripes`}</span>}
                                 {s.dob && <span style={{ color: "var(--ink-soft)" }}> · Age {calcAge(s.dob)}</span>}
                               </div>
@@ -737,12 +843,12 @@ export default function GradingApp() {
                               <div style={{ display: "flex", gap: 10, alignItems: "center", background: "var(--paper2)", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}>
                                 <div>
                                   <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>CURRENT</div>
-                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, display:"flex", alignItems:"center" }}><span style={{ display:"inline-block",width:10,height:10,borderRadius:"50%",marginRight:6,flexShrink:0,border:"0.5px solid rgba(0,0,0,0.12)",verticalAlign:"middle", background: ({"Beginner":"#e8e8e8","10th Kyu":"#e8e8e8","9th Kyu":"#e8e8e8","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a","Rokudan":"#1a1a1a","Shichidan":"#1a1a1a","Hachidan":"#1a1a1a","Kudan":"#1a1a1a"})[rank]||"#999" }} />{rankLabel(rank)}{stripes > 0 && <span style={{ color: "var(--crimson)", fontSize: 12 }}> · {stripes === 1 ? "stripe" : `${stripes} stripes`}</span>}</div>
+                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, display:"flex", alignItems:"center" }}><span style={{ display:"inline-block",width:10,height:10,borderRadius:"50%",marginRight:6,flexShrink:0,border:"0.5px solid rgba(0,0,0,0.12)",verticalAlign:"middle", background: sbc(s.id) }} />{rankLabel(rank)}{stripes > 0 && <span style={{ color: "var(--crimson)", fontSize: 12 }}> · {stripes === 1 ? "stripe" : `${stripes} stripes`}</span>}</div>
                                 </div>
                                 <ChevronRight size={16} style={{ color: "var(--crimson)", flexShrink: 0 }} />
                                 <div>
                                   <div style={{ fontSize: 10, color: "var(--ink-soft)", fontWeight: 700, letterSpacing: ".05em" }}>TESTING FOR</div>
-                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--crimson-d)", display:"flex", alignItems:"center" }}><span style={{ display:"inline-block",width:10,height:10,borderRadius:"50%",marginRight:6,flexShrink:0,border:"0.5px solid rgba(0,0,0,0.12)",verticalAlign:"middle", background: ({"Beginner":"#e8e8e8","10th Kyu":"#e8e8e8","9th Kyu":"#e8e8e8","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a","Rokudan":"#1a1a1a","Shichidan":"#1a1a1a","Hachidan":"#1a1a1a","Kudan":"#1a1a1a"})[testing?.to||'']||"#999" }} />{testing ? rankLabel(testing.to) : "Top rank reached"}</div>
+                                  <div className="ng-serif" style={{ fontSize: 16, fontWeight: 700, color: "var(--crimson-d)", display:"flex", alignItems:"center" }}><span style={{ display:"inline-block",width:10,height:10,borderRadius:"50%",marginRight:6,flexShrink:0,border:"0.5px solid rgba(0,0,0,0.12)",verticalAlign:"middle", background: bdc(testing?.to||'') }} />{testing ? rankLabel(testing.to) : "Top rank reached"}</div>
                                 </div>
                               </div>
 
@@ -766,7 +872,7 @@ export default function GradingApp() {
                               {/* Actions */}
                               <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
                                 <button className="ng-btn ng-btn-primary" style={{ fontSize: 13, padding: "9px 14px" }} onClick={() => setScreen("assess")} disabled={!testing}><ClipboardList size={14} /> Assess</button>
-                                <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setEditingStudent(editingStudent?.id === s.id ? null : { id: s.id, name: s.name, dob: s.dob || '', belt: '' })}><UserRound size={13} /> Edit</button>
+                                <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setEditingStudent(editingStudent?.id === s.id ? null : { id: s.id, name: s.name, dob: s.dob || '', belt: '', beltColor: s.beltColor || RANK_TO_BELT[currentRank(s.id)] || 'White' })}><UserRound size={13} /> Edit</button>
                                 <button className="ng-btn ng-btn-ghost" style={{ fontSize: 13, padding: "9px 12px" }} onClick={() => setScreen("print")} disabled={!testing}><Printer size={13} /> Sheet</button>
                               </div>
 
@@ -788,19 +894,33 @@ export default function GradingApp() {
                                       <input className="ng-input" value={calcAge(editingStudent.dob) ?? ''} readOnly style={{ background: "#eee", color: "var(--ink-soft)", cursor: "not-allowed" }} placeholder="—" />
                                     </div>
                                   </div>
-                                  <div style={{ marginBottom: 12 }}>
-                                    <label className="lbl">Current belt rank</label>
-                                    <div style={{ position: "relative" }}>
-                                      <select className="ng-select" value={editingStudent.rankOverride || ''} onChange={(e) => setEditingStudent({ ...editingStudent, rankOverride: e.target.value, editStripes: 0 })}>
-                                        <option value="">— no change —</option>
-                                        <optgroup label="Kyu ranks (colored belts)">
-                                          {["10th Kyu","9th Kyu","8th Kyu","7th Kyu","6th Kyu","5th Kyu","4th Kyu","3rd Kyu","2nd Kyu","1st Kyu"].map(k => <option key={k} value={k}>{rankLabel(k)}</option>)}
-                                        </optgroup>
-                                        <optgroup label="Dan ranks (black belt)">
-                                          {["Shodan","Nidan","Sandan","Yondan","Godan","Rokudan","Shichidan","Hachidan","Kudan"].map(k => <option key={k} value={k}>{rankLabel(k)}</option>)}
-                                        </optgroup>
-                                      </select>
-                                      <ChevronDown size={14} style={{ position: "absolute", right: 10, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+                                    <div>
+                                      <label className="lbl">Rank</label>
+                                      <div style={{ position: "relative" }}>
+                                        <select className="ng-select" value={editingStudent.rankOverride || ''} onChange={(e) => { const nr=e.target.value; setEditingStudent({ ...editingStudent, rankOverride: nr, editStripes: 0, beltColor: nr ? (RANK_TO_BELT[nr] || editingStudent.beltColor) : editingStudent.beltColor }); }}>
+                                          <option value="">— no change —</option>
+                                          <optgroup label="Kyu">
+                                            {["10th Kyu","9th Kyu","8th Kyu","7th Kyu","6th Kyu","5th Kyu","4th Kyu","3rd Kyu","2nd Kyu","1st Kyu"].map(k => <option key={k} value={k}>{rankLabel(k)}</option>)}
+                                          </optgroup>
+                                          <optgroup label="Dan">
+                                            {["Shodan","Nidan","Sandan","Yondan","Godan","Rokudan","Shichidan","Hachidan","Kudan"].map(k => <option key={k} value={k}>{rankLabel(k)}</option>)}
+                                          </optgroup>
+                                        </select>
+                                        <ChevronDown size={14} style={{ position: "absolute", right: 10, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                                      </div>
+                                    </div>
+                                    <div>
+                                      <label className="lbl">Belt color</label>
+                                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                                        <div style={{ position: "relative", flex: 1 }}>
+                                          <select className="ng-select" value={editingStudent.beltColor || 'White'} onChange={(e) => setEditingStudent({ ...editingStudent, beltColor: e.target.value })}>
+                                            {BELT_COLORS.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                                          </select>
+                                          <ChevronDown size={14} style={{ position: "absolute", right: 10, top: 12, pointerEvents: "none", color: "var(--ink-soft)" }} />
+                                        </div>
+                                        <div style={{ width: 26, height: 26, borderRadius: "50%", background: beltHex(editingStudent.beltColor || 'White'), border: "1px solid rgba(0,0,0,0.15)", flexShrink: 0 }} />
+                                      </div>
                                     </div>
                                   </div>
                                   {(editingStudent.rankOverride === "1st Kyu" || (!editingStudent.rankOverride && currentRank(s.id) === "1st Kyu")) && (
@@ -832,7 +952,7 @@ export default function GradingApp() {
                                       <div key={e.id} style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5, padding: "4px 0", borderBottom: "1px dotted var(--line)" }}>
                                         <span>
                                           <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: e.result==="Pass"?"#2F7D52":e.result==="Stripe"?"#B08B3E":"#A8322A", marginRight: 6 }} />
-                                          <span style={{ display:"inline-block", width:7, height:7, borderRadius:"50%", background:{"Beginner":"#e8e8e8","10th Kyu":"#e8e8e8","9th Kyu":"#e8e8e8","8th Kyu":"#F4D03F","7th Kyu":"#F4D03F","6th Kyu":"#E67E22","5th Kyu":"#E67E22","4th Kyu":"#27AE60","3rd Kyu":"#2980B9","2nd Kyu":"#8E44AD","1st Kyu":"#7B4B2A","Shodan":"#1a1a1a","Nidan":"#1a1a1a","Sandan":"#1a1a1a","Yondan":"#1a1a1a","Godan":"#1a1a1a","Rokudan":"#1a1a1a","Shichidan":"#1a1a1a","Hachidan":"#1a1a1a","Kudan":"#1a1a1a"}[e.rank]||"#999", marginRight:5, flexShrink:0, border:"0.5px solid rgba(0,0,0,0.1)" }} />
+                                          <span style={{ display:"inline-block", width:7, height:7, borderRadius:"50%", background:bdc(e.rank), marginRight:5, flexShrink:0, border:"0.5px solid rgba(0,0,0,0.1)" }} />
                                           <strong>{e.result === "Pass" ? rankLabel(e.rank) : e.result === "Stripe" ? `${rankLabel(e.rank)} · ${(e.stripes||1)===1 ? "stripe" : `${e.stripes} stripes`}` : e.result}</strong>
                                         </span>
                                         <span style={{ color: "var(--ink-soft)" }}>{e.date}</span>
@@ -881,9 +1001,16 @@ export default function GradingApp() {
               <>
                 <div className="ng-card" style={{ padding: 18 }}>
                   <SectionTitle title="Assessment" sub={`${(roster.find((r) => r.id === selStudent) || {}).name || "Student"} · testing for ${rankLabel(testing.to)} · ${testDate}`} />
-                  <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-                    <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores(allItems(testing).reduce((a, id) => ({ ...a, [id]: "Pass" }), {}))}>Mark all Pass</button>
+                  <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+                    <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores(allItems(testing).reduce((a, id) => ({ ...a, [id]: sensei.scoring === "score10" ? 10 : sensei.scoring === "custom" ? (sensei.customScoreLabels?.[0] ?? "+++") : "Pass" }), {}))}>
+                      {sensei.scoring === "score10" ? "Mark all 10" : sensei.scoring === "custom" ? `Mark all ${sensei.customScoreLabels?.[0] ?? "+++"}` : "Mark all Pass"}
+                    </button>
                     <button className="ng-btn ng-btn-ghost" style={{ padding: "7px 12px", fontSize: 12.5 }} onClick={() => setScores({})}>Clear</button>
+                    <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>
+                        <button className={`ng-chip ${sensei.scoring === "passrefer" ? "ng-chip-on" : ""}`} style={{ padding: "6px 11px", fontSize: 12 }} onClick={() => setScoring("passrefer")}>P/R/F</button>
+                      <button className={`ng-chip ${sensei.scoring === "score10" ? "ng-chip-on" : ""}`} style={{ padding: "6px 11px", fontSize: 12 }} onClick={() => setScoring("score10")}>/10</button>
+                      <button className={`ng-chip ${sensei.scoring === "custom" ? "ng-chip-on" : ""}`} style={{ padding: "6px 11px", fontSize: 12 }} onClick={() => setScoring("custom")}>Custom</button>
+                    </div>
                   </div>
                 </div>
 
@@ -897,13 +1024,30 @@ export default function GradingApp() {
                         {items.map((it) => (
                           <div key={it.id} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingBottom: 7, borderBottom: "1px dotted var(--line)" }}>
                             <span style={{ flex: 1, minWidth: 150, fontSize: 13.5 }}>{it.text}</span>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              {["Pass", "Refer", "Fail"].map((r) => {
-                                const on = scores[it.id] === r;
-                                const col = r === "Pass" ? "#2F7D52" : r === "Refer" ? "#B08B3E" : "#A8322A";
-                                return <button key={r} onClick={() => setScores((s) => ({ ...s, [it.id]: on ? undefined : r }))}
-                                  style={{ border: `1.5px solid ${on ? col : "var(--line)"}`, background: on ? col : "#fff", color: on ? "#fff" : "var(--ink-soft)", borderRadius: 999, padding: "6px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{r}</button>;
-                              })}
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              {sensei.scoring === "score10" ? (
+                                <input
+                                  type="number" min="0" max="10" step="0.5"
+                                  value={scores[it.id] ?? ""}
+                                  onChange={(e) => setScores((s) => ({ ...s, [it.id]: e.target.value !== "" ? parseFloat(e.target.value) : undefined }))}
+                                  placeholder="—"
+                                  style={{ width: 68, padding: "6px 8px", borderRadius: 8, border: `1.5px solid ${scores[it.id] != null ? "var(--indigo)" : "var(--line)"}`, fontSize: 14, fontWeight: 600, textAlign: "center", fontFamily: "inherit", background: scores[it.id] != null ? "#EEF2FF" : "#fff", color: "var(--ink)" }}
+                                />
+                              ) : sensei.scoring === "custom" ? (
+                                (sensei.customScoreLabels || ["+++", "++", "+"]).map((lbl, idx, arr) => {
+                                  const on = scores[it.id] === lbl;
+                                  const col = idx === 0 ? "#2F7D52" : idx === arr.length - 1 ? "#A8322A" : "#B08B3E";
+                                  return <button key={lbl + idx} onClick={() => setScores((s) => ({ ...s, [it.id]: on ? undefined : lbl }))}
+                                    style={{ border: `1.5px solid ${on ? col : "var(--line)"}`, background: on ? col : "#fff", color: on ? "#fff" : "var(--ink-soft)", borderRadius: 999, padding: "6px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{lbl}</button>;
+                                })
+                              ) : (
+                                ["Pass", "Refer", "Fail"].map((r) => {
+                                  const on = scores[it.id] === r;
+                                  const col = r === "Pass" ? "#2F7D52" : r === "Refer" ? "#B08B3E" : "#A8322A";
+                                  return <button key={r} onClick={() => setScores((s) => ({ ...s, [it.id]: on ? undefined : r }))}
+                                    style={{ border: `1.5px solid ${on ? col : "var(--line)"}`, background: on ? col : "#fff", color: on ? "#fff" : "var(--ink-soft)", borderRadius: 999, padding: "6px 14px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>{r}</button>;
+                                })
+                              )}
                             </div>
                           </div>
                         ))}
@@ -925,7 +1069,13 @@ export default function GradingApp() {
                     <button style={{ background: "#2F7D52", color: "#fff", border: "none", borderRadius: 10, padding: "9px 16px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 6 }} onClick={() => setPassConfirm({ targetRank: testing.to })}><CircleCheck size={15} /> Pass → {rankLabel(testing.to)}</button>
                     <button className="ng-btn ng-btn-primary" style={{ marginLeft: "auto" }} onClick={() => setScreen("print")}><Printer size={16} /> Print</button>
                   </div>
-                  <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "8px 0 0" }}>The Pass / Refer / Fail marks above carry onto the printed sheet — the chosen result is circled. Anything left unmarked prints blank to circle by hand.</p>
+                  <p style={{ fontSize: 12, color: "var(--ink-soft)", margin: "8px 0 0" }}>{
+                    sensei.scoring === "score10"
+                      ? "Scores entered above carry to the printed sheet. Blank items print as ____ / 10 to fill in by hand."
+                      : sensei.scoring === "custom"
+                        ? "Selections carry to the printed sheet — the chosen option is circled. Blank items print all options to circle by hand."
+                        : "Pass / Refer / Fail marks carry to the printed sheet — the chosen result is circled. Blank items print with circles to mark by hand."
+                  }</p>
                 </div>
 
                 {/* Pass confirmation sheet */}
@@ -1003,9 +1153,13 @@ export default function GradingApp() {
                         {items.map((it) => (
                           <div className="sheet-item" key={it.id}>
                             <span>{it.text}</span>
-                            <span className="circle-opt">{sensei.scoring === "passrefer"
-                              ? ["Pass", "Refer", "Fail"].map((r) => <span key={r} className={scores[it.id] === r ? "opt-pick" : ""}>{r}</span>)
-                              : "____ / 10"}</span>
+                            <span className="circle-opt">{
+                              sensei.scoring === "passrefer"
+                                ? ["Pass", "Refer", "Fail"].map((r) => <span key={r} className={scores[it.id] === r ? "opt-pick" : ""}>{r}</span>)
+                                : sensei.scoring === "custom"
+                                  ? (sensei.customScoreLabels || ["+++", "++", "+"]).map((lbl) => <span key={lbl} className={scores[it.id] === lbl ? "opt-pick" : ""}>{lbl}</span>)
+                                  : scores[it.id] != null ? <strong style={{ fontSize: 16 }}>{scores[it.id]} / 10</strong> : "____ / 10"
+                            }</span>
                           </div>
                         ))}
                       </div>
