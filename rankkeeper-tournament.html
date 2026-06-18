@@ -1,0 +1,2381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>RankKeeper · Tournament</title>
+<!-- Supabase JS (same project as RankKeeper) — lets ScoreKeeper pull the shared dojo roster cross-device -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --beige-bg:      #F5F0E8;
+  --beige-surface: #EDE8DE;
+  --beige-card:    #E4DDD0;
+  --beige-border:  #C8BFA8;
+  --beige-muted:   #9a8f7a;
+  --beige-text:    #1a1208;
+  --beige-sub:     #7a7060;
+  --navy:   #003DA5;
+  --gold:   #D4AF37;
+  --aka:    #B91C1C;
+  --ao:     #1D4ED8;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--beige-bg);color:var(--beige-text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;min-height:100dvh;max-width:480px;margin:0 auto;font-size:20px;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;font-size:20px;}
+input,select{font-family:inherit;font-size:20px;padding:14px 15px;border:0.5px solid var(--beige-border);border-radius:10px;background:var(--beige-surface);color:var(--beige-text);width:100%;}
+select{appearance:none;}
+.screen{display:none;min-height:100dvh;flex-direction:column;}
+.screen.active{display:flex;}
+
+/* NAV */
+.nav{background:var(--navy);padding:16px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.nav-title{color:#fff;font-size:24px;font-weight:600;}
+.nav-sub{color:rgba(255,255,255,0.6);font-size:14px;margin-top:1px;}
+.nav-btn{color:var(--gold);font-size:16px;border:0.5px solid var(--gold);border-radius:20px;padding:7px 16px;}
+
+/* SCROLLABLE BODY */
+.scroll-body{flex:1;overflow-y:auto;padding:16px;}
+
+/* FORM */
+.label{font-size:18px;color:var(--beige-sub);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px;display:block;}
+.mb{margin-bottom:16px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.sel-wrap{position:relative;}
+.sel-wrap::after{content:"▾";position:absolute;right:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--beige-muted);font-size:14px;}
+.divider{border:none;border-top:0.5px solid var(--beige-border);margin:18px 0;}
+.section-title{font-size:20px;font-weight:600;color:var(--beige-sub);margin-bottom:14px;}
+
+/* COMPETITOR ROWS */
+.comp-row{display:flex;align-items:flex-start;gap:8px;margin-bottom:8px;}
+.seed{width:28px;height:28px;border-radius:50%;background:var(--navy);color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:11px;}
+.comp-row .roster-area,.comp-row .guest-area{flex:1;}
+.remove-btn{color:var(--beige-muted);font-size:20px;padding:4px;flex-shrink:0;margin-top:4px;line-height:1;}
+.guest-toggle{font-size:14px;color:var(--navy);margin-top:7px;text-decoration:underline;}
+.guest-fields{display:flex;gap:6px;align-items:center;}
+.guest-name{flex:1;font-size:13px;min-width:0;}
+.guest-age{width:58px;font-size:13px;flex-shrink:0;}
+.guest-belt-wrap{width:110px;flex-shrink:0;position:relative;}
+.guest-belt{font-size:13px;padding-right:26px;}
+.belt-dot{position:absolute;right:24px;top:50%;transform:translateY(-50%);width:12px;height:12px;border-radius:50%;border:0.5px solid var(--beige-border);pointer-events:none;}
+.b-match-edit{display:flex;align-items:stretch;}
+.b-edit-names{flex:1;min-width:0;}
+.b-edit-names .b-fighter{padding:7px 8px;}
+.b-kata{display:block;font-size:10px;color:var(--beige-muted);font-style:italic;margin-top:1px;}
+.b-edit-btn{width:34px;flex-shrink:0;border-left:0.5px solid var(--beige-border);background:var(--beige-card);color:var(--navy);font-size:16px;display:flex;align-items:center;justify-content:center;}
+.b-edit-btn:active{background:var(--beige-border);}
+.b-bye-btn{width:100%;margin-top:4px;padding:6px;border-radius:6px;font-size:11px;font-weight:500;background:#FEF3C7;color:#92400E;border:0.5px solid #F59E0B;}
+.b-bye-btn:active{background:#FDE68A;}
+.spar-bout{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.spar-bout-num{width:22px;height:22px;border-radius:50%;background:var(--navy);color:#fff;font-size:11px;font-weight:500;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.spar-bout-body{flex:1;border:0.5px solid var(--beige-border);border-radius:8px;overflow:hidden;background:var(--beige-surface);min-width:0;}
+.spar-action{flex-shrink:0;border-radius:8px;padding:8px 10px;font-size:12px;font-weight:500;background:var(--beige-card);color:var(--beige-sub);border:0.5px solid var(--beige-border);}
+.spar-action.play{background:var(--navy);color:var(--gold);border-color:var(--navy);}
+
+/* BUTTONS */
+.btn-gold{background:var(--gold);color:var(--navy);font-weight:600;font-size:17px;border-radius:10px;padding:15px;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn-navy{background:var(--navy);color:var(--gold);font-weight:600;font-size:17px;border-radius:10px;padding:15px;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;}
+.btn-add{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:11px;border:0.5px dashed var(--navy);border-radius:10px;color:var(--navy);font-size:15px;margin-bottom:16px;}
+.btn-sec{background:var(--beige-card);color:var(--beige-text);font-size:14px;border:0.5px solid var(--beige-border);border-radius:10px;padding:10px 16px;}
+.error-box{background:#FEE2E2;color:#991B1B;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:13px;}
+
+/* BRACKET */
+.bracket-scroll{overflow-x:auto;padding:16px;flex-shrink:0;}
+.bracket-row{display:flex;flex-direction:column;gap:16px;padding:12px;}
+.division-section{display:flex;flex-direction:column;border-radius:8px;overflow:hidden;border:1px solid var(--beige-border);}
+.division-rounds{display:flex;gap:1px;background:var(--beige-border);min-width:fit-content;overflow-x:auto;}
+.b-col{display:flex;flex-direction:column;min-width:118px;flex:1;}
+.b-col-head{padding:6px 10px 8px;font-size:11px;font-weight:500;text-transform:uppercase;letter-spacing:.05em;color:var(--beige-sub);border-bottom:0.5px solid var(--beige-border);}
+.b-col.odd{background:#F0EEEA;}
+.b-col.even{background:var(--beige-surface);}
+.b-col.odd .b-col-head{background:#E8E5DF;}
+.b-col.even .b-col-head{background:var(--beige-card);}
+.b-col-body{flex:1;padding:8px;display:flex;flex-direction:column;gap:8px;}
+.b-match{border:0.5px solid #D1D5DB;border-radius:8px;overflow:hidden;background:var(--beige-surface);}
+.b-fighter{padding:7px 10px;font-size:13px;display:flex;align-items:center;justify-content:space-between;background:var(--beige-surface);}
+.b-fighter.aka-color{color:var(--aka);}
+.b-fighter.ao-color{color:var(--ao);}
+.b-fighter.winner-aka{color:var(--aka);font-weight:500;background:#FEE2E2;}
+.b-fighter.winner-ao{color:var(--ao);font-weight:500;background:#DBEAFE;}
+.aau-mode .b-fighter.winner-ao{color:#ffffff;font-weight:600;background:#111111;}
+.b-fighter.tbd{color:var(--beige-muted);font-style:italic;}
+.b-sep{height:0.5px;background:#D1D5DB;}
+.b-pts{font-size:12px;font-weight:500;}
+.tip-pill{display:inline-flex;align-items:center;gap:5px;font-size:11px;background:#FEF3C7;color:#92400E;border-radius:20px;padding:4px 10px;border:0.5px solid #F59E0B;margin:0 16px 8px;}
+.bracket-footer{padding:0 16px 24px;}
+
+/* SCORER */
+.scorer-wrap{display:flex;flex-direction:column;height:100dvh;overflow:hidden;}
+.top-strip{background:var(--beige-card);padding:7px 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:0.5px solid var(--beige-border);flex-shrink:0;}
+.recent-strip{background:#E4DDD0;padding:6px 14px;display:flex;align-items:center;gap:8px;border-bottom:0.5px solid var(--beige-border);flex-shrink:0;min-height:38px;}
+.ev-badge{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0;color:#fff;}
+.ev-badge.aka{background:var(--aka);}
+.ev-badge.ao{background:var(--ao);}
+.swap-strip{background:var(--beige-card);padding:6px 14px;display:flex;align-items:center;justify-content:center;gap:10px;border-bottom:0.5px solid var(--beige-border);flex-shrink:0;}
+.swap-btn{background:var(--beige-surface);border:0.5px solid var(--beige-border);border-radius:20px;padding:4px 12px;font-size:11px;color:var(--beige-sub);}
+.swap-icon{font-size:20px;color:var(--navy);font-weight:500;}
+.fighters{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--beige-border);flex:none;overflow:visible;height:auto;}
+.fighters.kata{grid-template-columns:32.5fr 35fr 32.5fr;}
+.fighter{padding:8px 10px 6px;display:flex;flex-direction:column;gap:5px;overflow:hidden;}
+.fighter.aka{background:var(--aka);}
+.fighter.ao{background:var(--ao);}
+
+/* AAU: AO side is white — flip all child text to dark */
+/* AAU WHITE side: white background, black text */
+.fighter.ao.white-side{background:#F5F5F5 !important;border:none;}
+.fighter.ao.white-side .f-label{color:rgba(0,0,0,0.45);}
+.fighter.ao.white-side .f-name{color:#1a1208;}
+.fighter.ao.white-side .big-score{color:#1a1208;}
+.fighter.ao.white-side .score-btn{background:rgba(0,0,0,0.08);color:#1a1208;}
+.fighter.ao.white-side .score-btn:active{background:rgba(0,0,0,0.15);}
+.fighter.ao.white-side .dot{background:rgba(0,0,0,0.55);}
+.fighter.ao.white-side .kata-name{color:rgba(0,0,0,0.7);}
+.fighter.ao.white-side .senshu-dot.off{border-color:rgba(0,0,0,0.2);}
+.fighter.ao.white-side .flag-btn.inactive{background:rgba(0,0,0,0.06);border-color:rgba(0,0,0,0.12);color:rgba(0,0,0,0.4);}
+.fighter.ao.white-side .flag-btn.active{background:rgba(0,0,0,0.12);border-color:rgba(0,0,0,0.3);color:#1a1208;}
+
+/* Mode toggle (Kumite / Kata) */
+.mode-toggle{display:flex;gap:6px;background:var(--beige-card);border-radius:12px;padding:4px;margin-bottom:16px;}
+.mode-btn{flex:1;padding:16px;border-radius:9px;font-size:22px;font-weight:600;color:var(--beige-sub);background:transparent;}
+.mode-btn.active{background:var(--navy);color:var(--gold);}
+
+/* Kata name under competitor */
+.kata-name{font-size:17px;color:rgba(255,255,255,0.95);text-align:center;min-height:20px;}
+.kata-tap{cursor:pointer;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px;}
+.kata-flag{color:#FCD34D;font-style:normal;font-weight:500;white-space:nowrap;}
+
+/* Kata center flag panel */
+.kata-center{background:var(--beige-surface);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px 8px;width:100%;}
+.kata-center-title{font-size:10px;color:var(--beige-sub);text-align:center;}
+.kata-cols{display:flex;gap:14px;align-items:flex-start;}
+.kata-col{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.kata-row-label{font-size:11px;font-weight:700;letter-spacing:.06em;margin-bottom:2px;}
+.kata-row-label.aka{color:var(--aka);}
+.kata-row-label.ao{color:var(--ao);}
+.kata-circle{width:9vw;height:9vw;max-width:110px;max-height:110px;min-width:52px;min-height:52px;aspect-ratio:1/1;border-radius:50%;font-size:3.5vw;font-weight:700;color:#fff;border:none;cursor:pointer;}
+.kata-circle.aka{background:var(--aka);}
+.kata-circle.ao{background:var(--ao);}
+.kata-circle.ao.aau-white{background:#ffffff;color:#1a1208;border:1.5px solid #C8BFA8;}
+.kata-row-label.ao.aau-white-label{color:#1a1208;}
+.kata-circle.sel{outline:3px solid var(--gold);outline-offset:1px;}
+.kata-circle:not(.sel){opacity:0.45;}
+.kata-result{font-size:24px;font-weight:700;color:var(--beige-text);margin-top:4px;}
+.kata-hint{font-size:10px;color:var(--beige-muted);text-align:center;}
+.kata-reset{margin-top:4px;font-size:11px;color:var(--navy);border:0.5px solid var(--navy);border-radius:20px;padding:4px 12px;}
+
+.f-top{display:flex;align-items:center;justify-content:space-between;}
+.f-label{font-size:1.5vw;font-weight:700;color:rgba(255,255,255,0.8);letter-spacing:.04em;min-font-size:14px;}
+.senshu-dot{width:12px;height:12px;border-radius:50%;cursor:pointer;flex-shrink:0;}
+.senshu-dot.on{background:var(--gold);}
+.senshu-dot.off{background:transparent;border:1px solid rgba(255,255,255,0.3);}
+.f-name{font-size:1.8vw;color:#fff;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-font-size:14px;}
+.big-score{font-size:80px;font-weight:500;color:#fff;line-height:1;text-align:center;padding:0;}
+.score-btns{display:flex;flex-direction:column;gap:5px;}
+.score-btn{border:none;border-radius:8px;padding:12px 8px;background:rgba(255,255,255,0.18);color:#fff;display:flex;flex-direction:column;align-items:center;gap:4px;width:100%;cursor:pointer;font-size:24px;font-weight:700;}
+.score-btn:active{background:rgba(255,255,255,0.35);}
+.btn-label{font-size:11px;font-weight:500;letter-spacing:.04em;white-space:nowrap;}
+.dots-row{display:flex;flex-wrap:wrap;gap:3px;justify-content:center;min-height:8px;}
+.dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.9);flex-shrink:0;}
+.penalty-row{display:flex;gap:4px;}
+.flag-btn{flex:1;display:flex;align-items:center;justify-content:center;gap:3px;border-radius:6px;padding:5px 2px;font-size:10px;cursor:pointer;}
+.flag-btn.inactive{background:rgba(0,0,0,0.2);border:0.5px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.55);}
+.flag-btn.active{background:rgba(255,255,255,0.22);border:0.5px solid rgba(255,255,255,0.5);color:#fff;}
+.timer-bar{background:var(--beige-card);padding:12px 14px;display:flex;align-items:center;gap:8px;border-top:0.5px solid var(--beige-border);flex-shrink:0;}
+.timer-display{font-size:52px;font-weight:500;color:var(--beige-text);letter-spacing:.05em;flex:1;text-align:center;cursor:pointer;}
+.time-adj{background:var(--beige-surface);border:0.5px solid var(--beige-border);border-radius:10px;width:48px;padding:14px 0;font-size:24px;font-weight:500;color:var(--navy);flex-shrink:0;}
+.time-adj:active{background:var(--beige-border);}
+.undo-btn{background:var(--beige-surface);border:0.5px solid var(--beige-border);border-radius:10px;padding:12px 14px;font-size:16px;color:var(--beige-sub);}
+.hajime-btn{background:var(--navy);color:var(--gold);font-weight:700;border:none;border-radius:10px;padding:14px 22px;font-size:20px;letter-spacing:.06em;}
+.sub-bar{background:#CEC7B8;padding:7px 14px 12px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.buzzer-note{font-size:13px;color:var(--beige-sub);}
+.buzzer-link{color:var(--navy);text-decoration:underline;cursor:pointer;font-size:13px;}
+.end-btn{background:none;border:0.5px solid #A89F8C;border-radius:20px;padding:5px 14px;font-size:13px;color:var(--beige-sub);}
+.abandon-btn{background:none;border:none;color:var(--beige-muted);font-size:14px;padding:10px 0 2px;width:100%;text-align:center;text-decoration:underline;text-underline-offset:3px;}
+
+/* EVENT LOG */
+.log-summary{background:var(--beige-card);padding:10px 16px;display:flex;justify-content:space-around;border-bottom:0.5px solid var(--beige-border);}
+.log-stat{text-align:center;}
+.log-stat-val{font-size:20px;font-weight:500;}
+.log-stat-lbl{font-size:10px;color:var(--beige-muted);margin-top:2px;}
+.log-entry{padding:10px 16px;display:flex;align-items:flex-start;gap:10px;border-bottom:0.5px solid var(--beige-card);background:var(--beige-surface);}
+.log-badge{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0;color:#fff;}
+.log-badge.aka{background:var(--aka);}
+.log-badge.ao{background:var(--ao);}
+.log-pts{font-size:14px;font-weight:500;color:var(--beige-text);}
+.log-note{font-size:11px;color:var(--beige-muted);margin-top:2px;}
+.log-time{font-size:12px;color:var(--beige-muted);padding-top:2px;white-space:nowrap;}
+.empty-log{padding:32px 16px;text-align:center;color:var(--beige-muted);font-size:14px;}
+
+/* WIN OVERLAY */
+.win-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100;}
+.win-card{background:var(--beige-surface);border-radius:20px;padding:32px 24px;text-align:center;max-width:300px;width:90%;}
+.win-trophy{font-size:48px;margin-bottom:12px;}
+.win-title{font-size:22px;font-weight:500;color:var(--beige-text);margin-bottom:4px;}
+.win-sub{font-size:14px;color:var(--beige-sub);margin-bottom:24px;}
+.win-scores{display:flex;justify-content:center;gap:24px;margin-bottom:20px;}
+.win-score-block{text-align:center;}
+.win-score-val{font-size:36px;font-weight:500;}
+.win-score-lbl{font-size:12px;color:var(--beige-sub);}
+.win-picker-label{font-size:11px;color:var(--beige-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}
+.win-picker{display:flex;gap:8px;margin-bottom:20px;}
+.win-pick-btn{flex:1;padding:12px 8px;border-radius:10px;font-size:14px;font-weight:500;border:2px solid transparent;background:var(--beige-card);color:var(--beige-text);}
+.win-pick-btn.sel-aka{border-color:var(--aka);background:#FEE2E2;color:var(--aka);}
+.win-pick-btn.sel-ao{border-color:var(--ao);background:#DBEAFE;color:var(--ao);}
+.win-pick-btn.dim{opacity:0.5;}
+/* ── DESKTOP / WIDE SCREEN ──────────────────── */
+@media (min-width: 700px) {
+  .kata-center { padding: 12px 8px; gap: 12px; width: 100%; }
+  .kata-cols { gap: 2vw; justify-content: center; }
+  .kata-col { gap: 1.5vw; }
+  .kata-circle { width: 9vw; height: 9vw; max-width: 110px; max-height: 110px; min-width: 60px; min-height: 60px; aspect-ratio: 1/1; font-size: 3.5vw; }
+  .kata-row-label { font-size: 1.5vw; font-weight: 700; letter-spacing: .04em; }
+  .f-label { font-size: 1.5vw; }
+  .f-name { font-size: 1.8vw; }
+  .kata-center-title { font-size: 14px; }
+  .kata-result { font-size: 36px; }
+  .kata-hint { font-size: 13px; }
+}
+
+/* ── LANDSCAPE ──────────────────────────────── */
+@media (orientation: landscape) {
+  body { max-width: 100%; }
+
+  /* Scorer: side-by-side panels already work; just shrink vertical elements */
+  .fighters { min-height: 0; }
+  .fighter { padding: 6px 8px; gap: 4px; }
+  .big-score { font-size: 64px; }
+  .score-btn { padding: 8px 6px; font-size: 20px; }
+  .f-name { font-size: 17px; }
+  .f-label { font-size: 14px; }
+
+  /* Timer bar tighter */
+  .timer-bar { padding: 6px 12px; }
+  .timer-display { font-size: 38px; }
+  .hajime-btn { padding: 8px 14px; font-size: 13px; }
+  .undo-btn { padding: 8px 10px; font-size: 12px; }
+  .time-adj { width: 40px; padding: 10px 0; font-size: 20px; }
+  .sub-bar { padding: 4px 14px 6px; }
+
+  /* Nav tighter */
+  .nav { padding: 8px 14px; }
+  .nav-title { font-size: 18px; }
+  .nav-sub { font-size: 11px; }
+
+  /* Setup screen: two-column form layout */
+  .scroll-body { padding: 10px 16px; }
+  .mode-toggle { margin-bottom: 10px; }
+  .mb { margin-bottom: 8px; }
+
+  /* Bracket: allow full width scroll */
+  #screen-bracket .scroll-body { padding: 8px; }
+  .bracket-row { gap: 10px; padding: 8px; }
+  .division-rounds { overflow-x: auto; }
+
+  /* Kata center panel */
+  .kata-center { padding: 6px; min-width: 120px; }
+  .kata-circle { width: 7vw; height: 7vw; max-width: 80px; min-width: 44px; aspect-ratio: 1/1; font-size: 3vw; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 1: SETUP
+════════════════════════════════════════════ -->
+<div class="screen active" id="screen-setup">
+  <div class="nav">
+    <div>
+      <div class="nav-title">New tournament</div>
+      <div class="nav-sub">RankKeeper · Kumite</div>
+    </div>
+  </div>
+  <div class="scroll-body">
+    <div id="setup-error" class="error-box" style="display:none;"></div>
+
+    <!-- Mode toggle: Kumite vs Kata -->
+    <div class="mode-toggle">
+      <button class="mode-btn active" id="mode-kumite" onclick="setMode('kumite')">🥊 Kumite</button>
+      <button class="mode-btn" id="mode-kata" onclick="setMode('kata')">🥋 Kata</button>
+    </div>
+
+    <!-- Quick jump to scoreboard, no bracket -->
+    <button class="btn-navy" style="margin-bottom:16px;" onclick="quickScoreboard()">
+      ⚡ Quick scoreboard — skip bracket setup
+    </button>
+
+    <label class="label">Tournament name</label>
+    <input type="text" id="t-name" placeholder="e.g. Spring Invitational 2026" class="mb"/>
+
+    <div class="grid2">
+      <div>
+        <label class="label">Ruleset</label>
+        <div class="sel-wrap mb"><select id="t-ruleset">
+          <option value="wkf">WKF</option>
+          <option value="pkf">PKF (Pan American)</option>
+          <option value="nka">USA NKF</option>
+          <option value="aau_ippon">AAU — Shobu Ippon</option>
+          <option value="aau_sanbon">AAU — Shobu Sanbon</option>
+        </select></div>
+      </div>
+      <div>
+        <label class="label">Bracket format</label>
+        <div class="sel-wrap mb"><select id="t-bracket">
+          <option value="single">Single elimination</option>
+          <option value="double" disabled>Double elimination (coming soon)</option>
+        </select></div>
+      </div>
+      <div>
+        <label class="label">Match duration</label>
+        <div class="sel-wrap mb"><select id="t-duration">
+          <option value="">Default</option>
+          <option value="0.5">0:30</option>
+          <option value="1">1:00</option>
+          <option value="1.5">1:30</option>
+          <option value="2">2:00</option>
+          <option value="2.5">2:30</option>
+          <option value="3">3:00</option>
+          <option value="3.5">3:30</option>
+          <option value="4">4:00</option>
+          <option value="4.5">4:30</option>
+          <option value="5">5:00</option>
+        </select></div>
+      </div>
+      <!-- Kumite: win condition -->
+      <div id="field-win">
+        <label class="label">Win condition</label>
+        <div class="sel-wrap mb"><select id="t-win">
+          <option value="time">Time only</option>
+          <option value="lead">8pt lead</option>
+          <option value="ippon">Ippon only</option>
+        </select></div>
+      </div>
+      <!-- Kata: number of judges -->
+      <div id="field-judges" style="display:none;">
+        <label class="label">Judges</label>
+        <div class="sel-wrap mb"><select id="t-judges">
+          <option value="3">3 judges (2 to win)</option>
+          <option value="5">5 judges (3 to win)</option>
+        </select></div>
+      </div>
+    </div>
+
+    <hr class="divider"/>
+    <p class="section-title">Competitors — select from roster or add guest</p>
+    <div id="comp-slots"></div>
+    <button class="btn-add" onclick="addSlot()">+ Add competitor slot</button>
+    <button class="btn-add" onclick="loadAllStudents()" style="border-color:var(--beige-border);color:var(--beige-sub);">⬇ Load all dojo students</button>
+    <button class="btn-gold" onclick="generateBracket()">Generate bracket →</button>
+    <button class="btn-gold" style="margin-top:10px;" onclick="openEmptyBracket()">Open empty bracket (sparring) →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 2: BRACKET
+════════════════════════════════════════════ -->
+<div class="screen" id="screen-bracket">
+  <div class="nav">
+    <div>
+      <div class="nav-title" id="bracket-title">Tournament</div>
+      <div class="nav-sub" id="bracket-sub"></div>
+    </div>
+    <button class="nav-btn" onclick="showScreen('setup')">← Back</button>
+  </div>
+  <div class="bracket-scroll">
+    <div class="bracket-row" id="bracket-row"></div>
+  </div>
+  <div class="tip-pill">Tap any completed match to view scores</div>
+  <div class="bracket-footer">
+    <div id="next-match-area"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 2b: SPARRING (empty bracket / flat match log)
+════════════════════════════════════════════ -->
+<div class="screen" id="screen-spar">
+  <div class="nav">
+    <div>
+      <div class="nav-title" id="spar-title">Sparring session</div>
+      <div class="nav-sub" id="spar-sub"></div>
+    </div>
+    <button class="nav-btn" onclick="showScreen('setup')">← Back</button>
+  </div>
+  <div style="flex:1;overflow-y:auto;padding:16px;">
+    <div id="spar-list"></div>
+    <button class="btn-gold" style="margin-top:8px;" onclick="openAddBout()">+ Add bout</button>
+  </div>
+</div>
+
+<!-- ADD BOUT MODAL -->
+<div class="win-overlay" id="add-bout" style="display:none;">
+  <div class="win-card" style="max-width:340px;">
+    <div class="win-title" style="font-size:18px;margin-bottom:16px;">New bout</div>
+    <div style="text-align:left;margin-bottom:14px;">
+      <label class="label" style="color:var(--aka);">AKA (red)</label>
+      <div class="sel-wrap"><select id="bout-c1" onchange="onBoutCompetitorChange()"></select></div>
+      <div class="sel-wrap kata-editor-row" id="bout-kata1-wrap" style="display:none;margin-top:6px;">
+        <select id="bout-kata1"></select>
+      </div>
+    </div>
+    <div style="text-align:left;margin-bottom:20px;">
+      <label class="label" style="color:var(--ao);">AO (blue)</label>
+      <div class="sel-wrap"><select id="bout-c2" onchange="onBoutCompetitorChange()"></select></div>
+      <div class="sel-wrap kata-editor-row" id="bout-kata2-wrap" style="display:none;margin-top:6px;">
+        <select id="bout-kata2"></select>
+      </div>
+    </div>
+    <div id="bout-error" class="error-box" style="display:none;margin-bottom:14px;"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-sec" style="flex:1;" onclick="closeAddBout()">Cancel</button>
+      <button class="btn-navy" style="flex:1;" onclick="startBout()">Start bout →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 3: SCORER
+════════════════════════════════════════════ -->
+<div class="screen" id="screen-scorer">
+  <div class="scorer-wrap">
+    <div class="nav">
+      <div>
+        <div class="nav-title" id="scorer-nav-title" style="font-size:16px;"></div>
+        <div class="nav-sub" id="scorer-nav-sub"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button onclick="showEventLog()" style="font-size:13px;color:var(--gold);border:0.5px solid var(--gold);border-radius:20px;padding:4px 12px;background:none;cursor:pointer;">📋 Log</button>
+        <button class="nav-btn" onclick="abandonMatch()">← Back</button>
+      </div>
+    </div>
+    <div class="top-strip">
+      <span id="scorer-match-info" style="font-size:13px;color:var(--beige-sub);"></span>
+    </div>
+    <div class="recent-strip" id="recent-strip">
+      <span style="font-size:12px;color:var(--beige-sub);font-style:italic;">No events yet</span>
+    </div>
+    <div class="swap-strip">
+      <button class="swap-btn" onclick="swapSides()">📱 Device</button>
+      <span class="swap-icon">⇄</span>
+      <button class="swap-btn" onclick="swapSides()">↔ Screen</button>
+    </div>
+    <div class="fighters" id="fighters">
+      <div class="fighter" id="panel-left">
+        <div class="f-top">
+          <span class="f-label" id="label-left">AO</span>
+          <div class="senshu-dot off" id="senshu-left" onclick="toggleSenshu('left')" title="Toggle Senshu"></div>
+        </div>
+        <div class="f-name" id="name-left">—</div>
+        <div class="kata-name" id="kata-left" style="display:none;"></div>
+        <div class="big-score" id="score-left">0</div>
+        <!-- Kumite controls -->
+        <div class="kumite-controls" id="kumite-left">
+          <div class="score-btns">
+            <button class="score-btn" id="score-btn-left-yuko" onclick="addScore('left','yuko')">
+              <span class="btn-label" id="btn-lbl-left-yuko">+1 YUKO</span>
+              <div class="dots-row" id="dots-left-yuko"></div>
+            </button>
+            <button class="score-btn" id="score-btn-left-wazaAri" onclick="addScore('left','wazaAri')">
+              <span class="btn-label" id="btn-lbl-left-wazaAri">+2 WAZA-ARI</span>
+              <div class="dots-row" id="dots-left-wazaAri"></div>
+            </button>
+            <button class="score-btn" id="score-btn-left-ippon" onclick="addScore('left','ippon')">
+              <span class="btn-label" id="btn-lbl-left-ippon">+3 IPPON</span>
+              <div class="dots-row" id="dots-left-ippon"></div>
+            </button>
+          </div>
+          <div class="penalty-row" id="penalties-left"></div>
+        </div>
+      </div>
+
+      <!-- Kata center: flag circles 1..N -->
+      <div class="kata-center" id="kata-center" style="display:none;"></div>
+
+      <div class="fighter" id="panel-right">
+        <div class="f-top">
+          <span class="f-label" id="label-right">AKA</span>
+          <div class="senshu-dot off" id="senshu-right" onclick="toggleSenshu('right')" title="Toggle Senshu"></div>
+        </div>
+        <div class="f-name" id="name-right">—</div>
+        <div class="kata-name" id="kata-right" style="display:none;"></div>
+        <div class="big-score" id="score-right">0</div>
+        <!-- Kumite controls -->
+        <div class="kumite-controls" id="kumite-right">
+          <div class="score-btns">
+            <button class="score-btn" id="score-btn-right-yuko" onclick="addScore('right','yuko')">
+              <span class="btn-label" id="btn-lbl-right-yuko">+1 YUKO</span>
+              <div class="dots-row" id="dots-right-yuko"></div>
+            </button>
+            <button class="score-btn" id="score-btn-right-wazaAri" onclick="addScore('right','wazaAri')">
+              <span class="btn-label" id="btn-lbl-right-wazaAri">+2 WAZA-ARI</span>
+              <div class="dots-row" id="dots-right-wazaAri"></div>
+            </button>
+            <button class="score-btn" id="score-btn-right-ippon" onclick="addScore('right','ippon')">
+              <span class="btn-label" id="btn-lbl-right-ippon">+3 IPPON</span>
+              <div class="dots-row" id="dots-right-ippon"></div>
+            </button>
+          </div>
+          <div class="penalty-row" id="penalties-right"></div>
+        </div>
+      </div>
+    </div>
+    <div class="timer-bar">
+      <button class="undo-btn" onclick="undoLast()">↩ Undo</button>
+      <button class="time-adj" onclick="adjustTime(-15)" title="−15 sec">−</button>
+      <div class="timer-display" id="timer-display" onclick="editTime()" title="Tap to set time">0:00</div>
+      <button class="time-adj" onclick="adjustTime(15)" title="+15 sec">+</button>
+      <button class="hajime-btn" id="hajime-btn" onclick="toggleTimer()">HAJIME</button>
+    </div>
+    <div class="sub-bar">
+      <span class="buzzer-note">🔔 Buzzer: <span id="buzz-label">30s</span> · <span class="buzzer-link" onclick="cycleBuzzer()">change</span></span>
+      <button class="end-btn" onclick="endMatch()">End match</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     SCREEN 4: EVENT LOG
+════════════════════════════════════════════ -->
+<div class="screen" id="screen-log">
+  <div class="nav">
+    <div>
+      <div class="nav-title">Event log</div>
+      <div class="nav-sub" id="log-sub"></div>
+    </div>
+    <button class="nav-btn" onclick="showScreen('scorer')">← Back</button>
+  </div>
+  <div class="log-summary">
+    <div class="log-stat"><div class="log-stat-val" id="log-ao-pts" style="color:var(--ao);">0</div><div class="log-stat-lbl">AO pts</div></div>
+    <div class="log-stat"><div class="log-stat-val" id="log-elapsed" style="color:#8a6a00;">0:00</div><div class="log-stat-lbl">Elapsed</div></div>
+    <div class="log-stat"><div class="log-stat-val" id="log-aka-pts" style="color:var(--aka);">0</div><div class="log-stat-lbl">AKA pts</div></div>
+  </div>
+  <div id="log-entries" style="flex:1;overflow-y:auto;"></div>
+</div>
+
+<!-- WIN OVERLAY -->
+<div class="win-overlay" id="win-overlay" style="display:none;">
+  <div class="win-card">
+    <div class="win-trophy">🏆</div>
+    <div class="win-title" id="win-name"></div>
+    <div class="win-sub" id="win-side"></div>
+    <div class="win-scores">
+      <div class="win-score-block" id="win-ao-block">
+        <div class="win-score-val" id="win-ao-score" style="color:var(--ao);">0</div>
+        <div class="win-score-lbl" id="win-ao-lbl">AO</div>
+      </div>
+      <div class="win-score-block">
+        <div class="win-score-val" style="color:var(--beige-muted);">—</div>
+        <div class="win-score-lbl">&nbsp;</div>
+      </div>
+      <div class="win-score-block">
+        <div class="win-score-val" id="win-aka-score" style="color:var(--aka);">0</div>
+        <div class="win-score-lbl">AKA</div>
+      </div>
+    </div>
+
+    <div class="win-picker-label">Confirm winner (tap to override)</div>
+    <div class="win-picker">
+      <button class="win-pick-btn" id="pick-aka" onclick="pickWinner('aka')"></button>
+      <button class="win-pick-btn" id="pick-ao" onclick="pickWinner('ao')"></button>
+    </div>
+
+    <button class="btn-navy" onclick="confirmMatchEnd()">Confirm & continue →</button>
+    <button class="abandon-btn" onclick="abandonMatch()">← Exit without recording</button>
+  </div>
+</div>
+
+<!-- MATCH EDITOR MODAL -->
+<div class="win-overlay" id="match-editor" style="display:none;">
+  <div class="win-card" style="max-width:340px;">
+    <div class="win-title" style="font-size:18px;margin-bottom:16px;">Edit match</div>
+    <div style="text-align:left;margin-bottom:14px;">
+      <label class="label" style="color:var(--aka);">AKA (red)</label>
+      <div class="sel-wrap"><select id="editor-c1" onchange="onEditorCompetitorChange()"></select></div>
+      <div class="sel-wrap kata-editor-row" id="editor-kata1-wrap" style="display:none;margin-top:6px;">
+        <select id="editor-kata1"></select>
+      </div>
+    </div>
+    <div style="text-align:left;margin-bottom:20px;">
+      <label class="label" style="color:var(--ao);" id="editor-ao-label">AO (blue)</label>
+      <div class="sel-wrap"><select id="editor-c2" onchange="onEditorCompetitorChange()"></select></div>
+      <div class="sel-wrap kata-editor-row" id="editor-kata2-wrap" style="display:none;margin-top:6px;">
+        <select id="editor-kata2"></select>
+      </div>
+    </div>
+
+    <!-- Winner override — only shown for completed matches -->
+    <div id="editor-winner-section" style="display:none;text-align:left;margin-bottom:20px;">
+      <label class="label">Who advances</label>
+      <div class="win-picker">
+        <button class="win-pick-btn" id="editor-pick-aka" onclick="setEditorWinner('aka')"></button>
+        <button class="win-pick-btn" id="editor-pick-ao" onclick="setEditorWinner('ao')"></button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:8px;">
+      <button class="btn-sec" style="flex:1;" onclick="closeMatchEditor()">Cancel</button>
+      <button class="btn-navy" style="flex:1;" onclick="saveMatchEditor()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ANNOUNCED KATA OVERRIDE MODAL -->
+<div class="win-overlay" id="kata-override" style="display:none;">
+  <div class="win-card" style="max-width:340px;">
+    <div class="win-title" style="font-size:18px;margin-bottom:6px;">Kata announced</div>
+    <div class="win-sub" id="kata-override-sub" style="margin-bottom:16px;"></div>
+    <div style="text-align:left;margin-bottom:20px;">
+      <label class="label">Form being performed</label>
+      <div class="sel-wrap"><select id="kata-override-select"></select></div>
+      <div style="font-size:11px;color:var(--beige-muted);margin-top:6px;" id="kata-override-note"></div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn-sec" style="flex:1;" onclick="closeAnnouncedKata()">Cancel</button>
+      <button class="btn-navy" style="flex:1;" onclick="saveAnnouncedKata()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// RULESETS
+// ══════════════════════════════════════════════
+const RULESETS = {
+  // WKF: Senior/U21 = 3min, Cadet/Junior = 2min, U14 = 1.5min. Default is 3min (Senior).
+  // Use the match duration dropdown to override for Cadet/Junior or non-elite events.
+  wkf: {
+    name:"WKF", defaultDuration:180,
+    scoring:{yuko:1,wazaAri:2,ippon:3},
+    winConditions:{pointLead:8,ipponEnds:true},
+    senshu:true,
+    penalties:{ladder:["C1","C2","HC","H"],labels:{C1:"Chukoku 1",C2:"Chukoku 2",HC:"Hansoku-chui",H:"Hansoku"},HCPoints:3},
+    kata:{defaultDuration:90}
+  },
+  // PKF uses WKF Competition Rules effective 2024 (per pkfkarate.com)
+  pkf: {
+    name:"PKF", defaultDuration:180,
+    scoring:{yuko:1,wazaAri:2,ippon:3},
+    winConditions:{pointLead:8,ipponEnds:true},
+    senshu:true,
+    penalties:{ladder:["C1","C2","HC","H"],labels:{C1:"Chukoku 1",C2:"Chukoku 2",HC:"Hansoku-chui",H:"Hansoku"},HCPoints:3},
+    kata:{defaultDuration:90}
+  },
+  // USA NKF: 1:30 for ALL categories (USA Karate Rules of Competition, January 1, 2026, Article 5)
+  nka: {
+    name:"USA NKF", defaultDuration:90,
+    scoring:{yuko:1,wazaAri:2,ippon:3},
+    winConditions:{pointLead:8,ipponEnds:true},
+    senshu:true,
+    penalties:{ladder:["C1","C2","HC","H"],labels:{C1:"Chukoku 1",C2:"Chukoku 2",HC:"Hansoku-chui",H:"Hansoku"},HCPoints:3},
+    kata:{defaultDuration:90}
+  },
+  // AAU Shobu Ippon: win by 1 Ippon (2 display pts) or 2 Waza-ari. Duration: 2:00 all divisions.
+  // Scoring display: +1 = Waza-ari (½pt), +2 = Ippon (full pt). No +3 button shown.
+  aau_ippon: {
+    name:"AAU Ippon", defaultDuration:120,
+    scoring:{yuko:1,wazaAri:2,ippon:3},
+    winConditions:{winScore:2},
+    senshu:true,
+    penalties:{
+      ladder:["Chukoku","Hansoku-chui","Hansoku"],
+      labels:{Chukoku:"Chukoku (Warning)","Hansoku-chui":"Hansoku-chui (Penalty)",Hansoku:"Hansoku (DQ)"},
+      HCPoints:2
+    },
+    kata:{defaultDuration:90,scoreRanges:{Beginner:[5.0,7.0],Novice:[5.5,7.5],Intermediate:[6.0,8.0],Advanced:[6.5,8.5]}}
+  },
+  // AAU Shobu Sanbon: win by 3 Ippon equiv (6 display pts). Duration: 2:00 (adult BB 18-34 = 3:00).
+  // For adult black belt 18-34 matches, select 3:00 from the duration dropdown.
+  aau_sanbon: {
+    name:"AAU Sanbon", defaultDuration:120,
+    scoring:{yuko:1,wazaAri:2,ippon:3},
+    winConditions:{winScore:6},
+    senshu:false,
+    penalties:{
+      ladder:["Jogai-ichi","Jogai-ni","Hansoku-chui","Hansoku"],
+      labels:{"Jogai-ichi":"Jogai Ichi (1st Warning)","Jogai-ni":"Jogai Ni (2nd Warning)","Hansoku-chui":"Hansoku-chui (Penalty)",Hansoku:"Hansoku (DQ)"},
+      HCPoints:2
+    },
+    kata:{defaultDuration:90,scoreRanges:{Beginner:[5.0,7.0],Novice:[5.5,7.5],Intermediate:[6.0,8.0],Advanced:[6.5,8.5]}}
+  }
+}
+
+// Returns true for any AAU ruleset variant
+function isAAURuleset(id){ return ((id!==undefined?id:(tournament?.rulesetId||''))).startsWith('aau') }
+
+// Full kata list (everything selectable)
+const KATA_LIST = [
+  "Taikyoku Shodan",
+  "Heian Shodan","Heian Nidan","Heian Sandan","Heian Yondan","Heian Godan",
+  "Tekki Shodan","Tekki Nidan","Tekki Sandan",
+  "Bassai Dai","Bassai Sho","Kanku Dai","Kanku Sho",
+  "Jion","Sochin","Enpi","Hangetsu","Jitte","Gankaku",
+  "Nijushiho","Chinte","Meikyo","Unsu","Wankan",
+  "Gojushiho Sho","Gojushiho Dai","Ji'in"
+]
+
+// Cumulative "suggested for rank" lists (USA NKF / WKF tournament kata by rank).
+// Each tier includes everything from lower tiers.
+const KATA_BEGINNER = ["Taikyoku Shodan","Heian Shodan"]
+const KATA_NOVICE   = [...KATA_BEGINNER, "Heian Nidan","Heian Sandan"]
+const KATA_INTER    = [...KATA_NOVICE, "Heian Yondan","Heian Godan","Tekki Shodan"]
+const KATA_ADVANCED = [...KATA_INTER,
+  "Bassai Dai","Bassai Sho","Kanku Dai","Kanku Sho","Jion","Sochin","Enpi",
+  "Hangetsu","Jitte","Gankaku","Tekki Nidan","Tekki Sandan","Nijushiho",
+  "Chinte","Meikyo","Unsu","Wankan","Gojushiho Sho","Gojushiho Dai","Ji'in"
+]
+
+// Map a belt color to its suggested kata list
+function suggestedKataForBelt(belt){
+  const b = (belt||"").toLowerCase()
+  if(b.includes("white")||b.includes("yellow")||b.includes("red")) return KATA_BEGINNER
+  if(b.includes("orange")||b.includes("green"))  return KATA_NOVICE
+  if(b.includes("blue")||b.includes("purple"))   return KATA_INTER
+  if(b.includes("brown")||b.includes("black"))   return KATA_ADVANCED
+  return KATA_BEGINNER   // default for unknown/guest
+}
+
+// Build the <optgroup> HTML for a kata dropdown: suggested-for-rank first, then all others
+function kataOptionsForCompetitor(competitor, selected){
+  const suggested = suggestedKataForBelt(competitor?.belt)
+  const others = KATA_LIST.filter(k=>!suggested.includes(k))
+  const opt = (k)=>`<option value="${k}" ${k===selected?'selected':''}>${k}</option>`
+  const divider = `<option disabled>──────────────</option>`
+  return `
+    <option value="">— Kata (form) —</option>
+    <optgroup label="✓ Suggested for ${competitor?.belt||'rank'} belt">
+      ${suggested.map(opt).join('')}
+    </optgroup>
+    ${divider}
+    <optgroup label="All other kata">
+      ${others.map(opt).join('')}
+    </optgroup>`
+}
+
+// ══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+// LIVE DOJO ROSTER — pulled from RankKeeper (shared localStorage on rankkeeper.app)
+// RankKeeper stores localStorage["gsb:students"] = { roster:[{id,name,dob,beltColor}], history:[...] }
+// ScoreKeeper needs {id, name, age, belt}. We derive age from dob and belt from beltColor
+// (falling back to the rank's default color via rank history if no explicit beltColor).
+// ══════════════════════════════════════════════
+
+// Rank -> default belt color (JKA Shotokan), used only when a student has no explicit beltColor
+const RANK_TO_BELT_SK = {
+  'Beginner':'White','10th Kyu':'White','9th Kyu':'Orange','8th Kyu':'Red',
+  '7th Kyu':'Yellow','6th Kyu':'Green','5th Kyu':'Blue','4th Kyu':'Purple',
+  '3rd Kyu':'Brown','2nd Kyu':'Brown','1st Kyu':'Brown',
+  'Shodan':'Black','Nidan':'Black','Sandan':'Black','Yondan':'Black','Godan':'Black',
+  'Rokudan':'Black','Shichidan':'Black','Hachidan':'Black','Kudan':'Black',
+}
+
+function ageFromDob(dob){
+  if(!dob) return '—'
+  const d = new Date(dob)
+  if(isNaN(d)) return '—'
+  const now = new Date()
+  let a = now.getFullYear() - d.getFullYear()
+  const m = now.getMonth() - d.getMonth()
+  if(m < 0 || (m === 0 && now.getDate() < d.getDate())) a--
+  return a >= 0 && a < 130 ? a : '—'
+}
+
+function currentRankFromHistory(history, sid){
+  const passes = (history||[])
+    .filter(h => h.studentId === sid && h.result === 'Pass')
+    .sort((a,b) => (a.date < b.date ? 1 : -1))
+  return passes.length ? passes[0].rank : 'Beginner'
+}
+
+// ══════════════════════════════════════════════════════════════
+// SHARED ROSTER — single source of truth across RankKeeper + ScoreKeeper
+// ──────────────────────────────────────────────────────────────
+// RankKeeper writes students to (a) device localStorage 'gsb:students' AND
+// (b) Supabase. ScoreKeeper reads BOTH:
+//   • Supabase  → works cross-device (grade on iPad, score on a laptop)
+//   • localStorage → instant + offline fallback on the same device
+// Both apps live on rankkeeper.app, so ScoreKeeper reuses RankKeeper's saved
+// Supabase auth session automatically — no separate login.
+// ══════════════════════════════════════════════════════════════
+
+// SAME Supabase project as RankKeeper. The anon key is public by design
+// (client-side, protected by Row-Level Security) — safe to ship here.
+const SUPABASE_URL = 'https://vxrsvhgdzqauofhsazkf.supabase.co'
+const SUPABASE_ANON_KEY = 'PASTE_VITE_SUPABASE_ANON_KEY_HERE'
+
+let _sb = null
+function sbClient(){
+  if(_sb) return _sb
+  if(!window.supabase || SUPABASE_ANON_KEY.startsWith('PASTE_')) return null
+  try {
+    // No custom storageKey: Supabase uses its default (sb-<projectref>-auth-token),
+    // which is exactly what RankKeeper uses — so ScoreKeeper reuses the same session.
+    _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    })
+    return _sb
+  } catch(e){ console.warn('Supabase client init failed:', e); return null }
+}
+
+// Reads RankKeeper students from LOCAL storage and returns them in ScoreKeeper shape.
+function loadDojoRosterLocal(){
+  try {
+    const raw = localStorage.getItem('gsb:students')
+    if(!raw) return []
+    const data = JSON.parse(raw)
+    const roster = data.roster || []
+    const history = data.history || []
+    return roster.map(s => {
+      const rank = currentRankFromHistory(history, s.id)
+      const belt = s.beltColor || RANK_TO_BELT_SK[rank] || 'White'
+      return { id: s.id, name: s.name, age: ageFromDob(s.dob), belt, rank }
+    })
+  } catch(e){
+    console.warn('Could not load local dojo roster:', e)
+    return []
+  }
+}
+
+// Reads the FULL roster from Supabase (cross-device). Returns [] if no session/offline.
+async function loadDojoRosterRemote(){
+  const sb = sbClient()
+  if(!sb) return []
+  try {
+    const { data: { user } } = await sb.auth.getUser()
+    if(!user){ console.log('[roster] no Supabase session — using local only'); return [] }
+
+    const { data: students, error } = await sb
+      .from('students').select('*')
+      .eq('dojo_id', user.id).eq('active', true).order('name')
+    if(error){ console.warn('[roster] students fetch error:', error); return [] }
+    if(!students || !students.length) return []
+
+    // Pull rank history to derive each student's current rank (for kata suggestions)
+    const { data: tests } = await sb
+      .from('rank_tests').select('*')
+      .eq('dojo_id', user.id).order('test_date', { ascending: true })
+
+    const rankOf = {}
+    ;(tests || []).forEach(t => {
+      if(t.result === 'pass') rankOf[t.student_id] = t.tested_belt
+    })
+
+    return students.map(s => {
+      const rank = rankOf[s.id] || 'Beginner'
+      const belt = s.belt || RANK_TO_BELT_SK[rank] || 'White'  // s.belt holds the color in Supabase
+      return { id: s.app_id || s.id, name: s.name, age: ageFromDob(s.dob), belt, rank }
+    })
+  } catch(e){
+    console.warn('[roster] remote load failed, falling back to local:', e)
+    return []
+  }
+}
+
+// Merge remote + local by student id (remote/local both keyed on the same app id).
+// Remote is the cross-device source of truth; local fills any gap when offline.
+function mergeRosters(remote, local){
+  const byId = {}
+  local.forEach(s => { byId[s.id] = s })
+  remote.forEach(s => { byId[s.id] = s })   // remote wins on conflict
+  return Object.values(byId).sort((a,b) => a.name.localeCompare(b.name))
+}
+
+// Refreshes the global ROSTER from Supabase (if available) + local, then re-renders
+// any open setup slots so the dropdowns show the full shared list.
+async function refreshRoster(){
+  const local = loadDojoRosterLocal()
+  ROSTER = local                      // show local immediately (fast/offline)
+  try {
+    const remote = await loadDojoRosterRemote()
+    if(remote.length){
+      ROSTER = mergeRosters(remote, local)
+      // Re-render setup slots if we're on the setup screen
+      if(document.getElementById('comp-slots') && document.querySelector('#comp-slots .seed')){
+        rebuildSlots()
+      }
+    }
+  } catch(e){ /* keep local roster */ }
+  return ROSTER
+}
+
+// Synchronous initial load (local) so the UI is never empty; remote refresh follows.
+function loadDojoRoster(){ return loadDojoRosterLocal() }
+
+// Live roster — local first, then enriched from Supabase.
+let ROSTER = loadDojoRoster()
+
+// Belt ranks with display colors (for guest entry dropdown + dots)
+// Includes Red for JKA 8th Kyu
+const BELTS = [
+  {name:"White",  color:"#F5F5F5"},
+  {name:"Yellow", color:"#F4D03F"},
+  {name:"Orange", color:"#E67E22"},
+  {name:"Red",    color:"#CC4444"},
+  {name:"Green",  color:"#27AE60"},
+  {name:"Blue",   color:"#2980B9"},
+  {name:"Purple", color:"#8E44AD"},
+  {name:"Brown",  color:"#7B4B2A"},
+  {name:"Black",  color:"#1a1a1a"},
+]
+const beltColor = (name) => (BELTS.find(b=>b.name===name)||{}).color || "#999"
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let appMode = 'kumite'   // 'kumite' | 'kata'
+let tournament = null
+let slots = []
+let slotCounter = 0
+let bracket = []   // array of rounds [{label, matches:[{id,c1,c2,winner,s1,s2,complete}]}]
+
+let match = {
+  // Fighter data keyed by ROLE (aka / ao) — never changes on swap
+  aka: { key:null, score:0, yuko:0, waza:0, ippon:0, penalty:-1, senshu:false },
+  ao:  { key:null, score:0, yuko:0, waza:0, ippon:0, penalty:-1, senshu:false },
+  leftIsAka: false,   // which physical side AKA sits on. false = AKA on right (default)
+  log:[],
+  matchId:null
+}
+
+// Resolve a physical side ('left'/'right') to a role ('aka'/'ao')
+function roleOf(side){
+  if(side==='left')  return match.leftIsAka ? 'aka' : 'ao'
+  if(side==='right') return match.leftIsAka ? 'ao' : 'aka'
+  return side // already a role
+}
+// Resolve a role to its physical side
+function sideOf(role){
+  if(role==='aka') return match.leftIsAka ? 'left' : 'right'
+  return match.leftIsAka ? 'right' : 'left'
+}
+
+let timerSecs = 0
+let timerRunning = false
+let timerInterval = null
+let buzzAt = 30
+let buzzFired = false
+let durationSecs = 120
+let audioCtx = null
+let chosenWinnerRole = 'aka'   // winner selected in the win overlay (overridable)
+let editorWinnerRole = null    // winner selected in the bracket match editor
+
+// ══════════════════════════════════════════════
+// SCREEN ROUTING
+// ══════════════════════════════════════════════
+function showScreen(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'))
+  document.getElementById('screen-'+id).classList.add('active')
+  window.scrollTo(0,0)
+}
+
+// ══════════════════════════════════════════════
+// SETUP SCREEN
+// ══════════════════════════════════════════════
+function uid(){ return Math.random().toString(36).slice(2,9) }
+
+// Toggle between Kumite and Kata mode on the setup page
+function setMode(mode){
+  appMode = mode
+  document.getElementById('mode-kumite').className = 'mode-btn' + (mode==='kumite'?' active':'')
+  document.getElementById('mode-kata').className   = 'mode-btn' + (mode==='kata'?' active':'')
+  // Swap win-condition (kumite) vs judges (kata) fields
+  document.getElementById('field-win').style.display    = mode==='kumite' ? 'block' : 'none'
+  document.getElementById('field-judges').style.display = mode==='kata'   ? 'block' : 'none'
+  // Re-render competitor slots so kata gets the kata dropdown
+  rebuildSlots()
+}
+
+function initSetup(){
+  ROSTER = loadDojoRosterLocal()   // instant local list so the screen is never empty
+  slots = []
+  document.getElementById('comp-slots').innerHTML = ''
+  addSlot(); addSlot(); addSlot(); addSlot()
+  refreshRoster()                  // then pull the full shared roster from Supabase (cross-device)
+}
+
+// Rebuild all slots preserving current selections (used when switching mode)
+function rebuildSlots(){
+  const saved = slots.map(s=>({competitorId:s.competitorId, mode:s.mode, guest:s.guest, kata:s.kata}))
+  slots = []
+  document.getElementById('comp-slots').innerHTML = ''
+  saved.forEach(s=>addSlot(s.competitorId, s))
+  if(saved.length===0){ addSlot(); addSlot() }
+}
+
+function addSlot(competitorId, savedState){
+  const id = 'slot_'+uid()
+  slotCounter++
+  const idx = slots.length
+  const slot = {
+    id,
+    competitorId: competitorId || (savedState?.competitorId) || '',
+    mode: savedState?.mode || 'roster',
+    guest: savedState?.guest || {name:'',age:'',belt:'White'},
+    kata: savedState?.kata || ''
+  }
+  slots.push(slot)
+
+  const selId = slot.competitorId
+
+  const div = document.createElement('div')
+  div.className = 'comp-row'
+  div.id = id
+  div.innerHTML = `
+    <div class="seed">${idx+1}</div>
+    <div style="flex:1;">
+      <div class="roster-area" id="roster-${id}">
+        <div class="sel-wrap">
+          <select onchange="onSlotChange('${id}',this.value)">
+            <option value="">${ROSTER.length ? '— Select from dojo roster —' : '— No students yet (add in RankKeeper) —'}</option>
+            ${ROSTER.map(r=>`<option value="${r.id}" ${r.id===selId?'selected':''}>${r.name} | Age ${r.age} | ${r.belt}</option>`).join('')}
+          </select>
+        </div>
+        <button class="guest-toggle" onclick="openGuest('${id}')">+ Add guest instead</button>
+      </div>
+      <div class="guest-area" id="guest-${id}" style="display:none;">
+        <div class="guest-fields">
+          <input type="text" class="guest-name" placeholder="Guest name" oninput="onGuestField('${id}','name',this.value)"/>
+          <input type="number" class="guest-age" placeholder="Age" oninput="onGuestField('${id}','age',this.value)"/>
+          <div class="sel-wrap guest-belt-wrap">
+            <select class="guest-belt" onchange="onGuestField('${id}','belt',this.value)">
+              ${BELTS.map(b=>`<option value="${b.name}">${b.name}</option>`).join('')}
+            </select>
+            <span class="belt-dot" id="beltdot-${id}" style="background:${beltColor('White')};"></span>
+          </div>
+        </div>
+        <button class="guest-toggle" onclick="closeGuest('${id}')">← Back to roster</button>
+      </div>
+    </div>
+    <button class="remove-btn" onclick="removeSlot('${id}')">×</button>
+  `
+  document.getElementById('comp-slots').appendChild(div)
+
+  // Restore guest view if needed
+  if(slot.mode==='guest'){
+    document.getElementById('roster-'+id).style.display='none'
+    document.getElementById('guest-'+id).style.display='block'
+  }
+  refreshSeeds()
+}
+
+function openGuest(id){
+  const slot = slots.find(s=>s.id===id)
+  if(slot){ slot.mode='guest'; slot.competitorId='' }
+  document.getElementById('roster-'+id).style.display='none'
+  document.getElementById('guest-'+id).style.display='block'
+}
+
+function closeGuest(id){
+  const slot = slots.find(s=>s.id===id)
+  if(slot){ slot.mode='roster' }
+  document.getElementById('roster-'+id).style.display='block'
+  document.getElementById('guest-'+id).style.display='none'
+}
+
+function onGuestField(id, field, val){
+  const slot = slots.find(s=>s.id===id)
+  if(!slot) return
+  slot.guest[field] = val
+  if(field==='belt'){
+    const dot = document.getElementById('beltdot-'+id)
+    if(dot) dot.style.background = beltColor(val)
+  }
+}
+
+function removeSlot(id){
+  slots = slots.filter(s=>s.id!==id)
+  document.getElementById(id)?.remove()
+  refreshSeeds()
+}
+
+function refreshSeeds(){
+  document.querySelectorAll('#comp-slots .seed').forEach((el,i)=>{ el.textContent=i+1 })
+}
+
+function onSlotChange(id, val){
+  const slot = slots.find(s=>s.id===id)
+  if(slot){ slot.competitorId = val; slot.mode='roster' }
+}
+
+function resolveCompetitor(slot){
+  let comp = null
+  if(slot.mode==='guest'){
+    const g = slot.guest
+    if(!g.name.trim()) return null
+    comp = {id:'guest_'+slot.id, name:g.name.trim(), age:g.age||'—', belt:g.belt||'Guest', isGuest:true}
+  } else {
+    if(!slot.competitorId) return null
+    const r = ROSTER.find(r=>r.id===slot.competitorId)
+    if(!r) return null
+    comp = {...r}   // clone so per-match data doesn't mutate roster
+  }
+  return comp
+}
+
+// ══════════════════════════════════════════════
+// BELT DIVISIONS
+// ══════════════════════════════════════════════
+// Three divisions matching all four systems (JKA / WKF / AAU / USA NKF):
+// Beginner = White, Yellow, Orange (JKA also includes Red for 8th Kyu)
+// Intermediate = Green, Blue, Purple
+// Advanced = Brown, Black
+const DIVISIONS = [
+  { name:'Beginner',     belts:['White','Yellow','Orange','Red'], order:0 },
+  { name:'Intermediate', belts:['Green','Blue','Purple'],         order:1 },
+  { name:'Advanced',     belts:['Brown','Black'],                 order:2 },
+]
+function beltDivision(belt){
+  return DIVISIONS.find(d=>d.belts.map(b=>b.toLowerCase()).includes((belt||'').toLowerCase())) || { name:'Beginner', order:0 }
+}
+function sortByDivision(competitors){
+  return [...competitors].sort((a,b)=>{
+    const da = beltDivision(a.belt).order
+    const db = beltDivision(b.belt).order
+    return da - db
+  })
+}
+
+function generateBracket(){
+  const name = document.getElementById('t-name').value.trim()
+  const errBox = document.getElementById('setup-error')
+  if(!name){ errBox.textContent='Please enter a tournament name.'; errBox.style.display='block'; return }
+
+  const rawCompetitors = slots.map(resolveCompetitor).filter(Boolean)
+  if(rawCompetitors.length<2){ errBox.textContent='Add at least 2 competitors.'; errBox.style.display='block'; return }
+  errBox.style.display='none'
+
+  const rulesetId = document.getElementById('t-ruleset').value
+  const ruleset = RULESETS[rulesetId]
+  const durVal = document.getElementById('t-duration').value
+  const baseDuration = appMode==='kata' ? (ruleset.kata?.defaultDuration||90) : ruleset.defaultDuration
+  durationSecs = durVal ? Math.round(parseFloat(durVal)*60) : baseDuration
+
+  tournament = {
+    name, rulesetId, ruleset,
+    mode: appMode,
+    judges: appMode==='kata' ? parseInt(document.getElementById('t-judges').value) : null,
+    bracketFormat: document.getElementById('t-bracket').value,
+    winCondition: document.getElementById('t-win').value,
+    competitors: rawCompetitors
+  }
+
+  // Build separate bracket per division — no cross-division pairing
+  const divGroups = {}
+  DIVISIONS.forEach(d=>{ divGroups[d.name] = [] })
+  rawCompetitors.forEach(c=>{
+    const div = beltDivision(c.belt).name
+    divGroups[div].push(c)
+  })
+
+  // bracket = array of { divisionName, rounds[] }, one entry per populated division
+  bracket = DIVISIONS
+    .filter(d => divGroups[d.name].length > 0)
+    .map(d => ({
+      divisionName: d.name,
+      rounds: divGroups[d.name].length === 1
+        ? [{label:'Solo', matches:[{id:uid(),c1:divGroups[d.name][0],c2:null,winner:null,s1:null,s2:null,complete:false,isBye:true}]}]
+        : buildBracket(divGroups[d.name])
+    }))
+
+  renderBracket()
+  showScreen('bracket')
+}
+
+// Load every dojo student into competitor slots (free-form, manual pairing)
+function loadAllStudents(){
+  // Remove all empty slots first so roster fills from slot 1
+  const emptyIds = slots.filter(s=>!s.competitorId).map(s=>s.id)
+  emptyIds.forEach(id=>{
+    slots = slots.filter(s=>s.id!==id)
+    const el = document.getElementById(id)
+    if(el) el.remove()
+  })
+  // Append any roster students not already in a slot
+  const chosen = new Set(slots.map(s=>s.competitorId).filter(Boolean))
+  ROSTER.forEach(r=>{
+    if(!chosen.has(r.id)) addSlot(r.id)
+  })
+  refreshSeeds()
+}
+
+// Jump straight to a single scoreboard match — no bracket
+function quickScoreboard(){
+  const rulesetId = document.getElementById('t-ruleset').value
+  const ruleset = RULESETS[rulesetId]
+  const durVal = document.getElementById('t-duration').value
+  const baseDuration = appMode==='kata' ? (ruleset.kata?.defaultDuration||90) : ruleset.defaultDuration
+  durationSecs = durVal ? Math.round(parseFloat(durVal)*60) : baseDuration
+
+  // Minimal tournament wrapper so scorer functions work
+  const blankAka = {id:'quick_aka', name:'AKA', age:'—', belt:'—'}
+  const blankAo  = {id:'quick_ao',  name:'AO',  age:'—', belt:'—'}
+
+  tournament = {
+    name:'Quick match', rulesetId, ruleset,
+    mode: appMode,
+    judges: appMode==='kata' ? parseInt(document.getElementById('t-judges').value) : null,
+    bracketFormat:'none',
+    winCondition: document.getElementById('t-win').value,
+    competitors:[blankAka, blankAo],
+    isQuick:true
+  }
+  bracket = [{divisionName:'Match', rounds:[{label:'Match', matches:[{id:'quick_match', c1:blankAka, c2:blankAo, winner:null, s1:null, s2:null, complete:false}]}]}]
+  startMatch('quick_match')
+}
+
+// ══════════════════════════════════════════════
+// SPARRING — empty bracket / flat match log
+// ══════════════════════════════════════════════
+let sparBouts = []   // flat list: {id, c1, c2, s1, s2, winnerRole, complete}
+
+function openEmptyBracket(){
+  const rulesetId = document.getElementById('t-ruleset').value
+  const ruleset = RULESETS[rulesetId]
+  const durVal = document.getElementById('t-duration').value
+  const baseDuration = appMode==='kata' ? (ruleset.kata?.defaultDuration||90) : ruleset.defaultDuration
+  durationSecs = durVal ? Math.round(parseFloat(durVal)*60) : baseDuration
+  const nameInput = document.getElementById('t-name').value.trim()
+
+  tournament = {
+    name: nameInput || (appMode==='kata'?'Kata session':'Sparring session'),
+    rulesetId, ruleset,
+    mode: appMode,
+    judges: appMode==='kata' ? parseInt(document.getElementById('t-judges').value) : null,
+    bracketFormat:'spar',
+    winCondition: document.getElementById('t-win').value,
+    competitors: ROSTER.slice(),   // full roster available to pick from
+    isSpar:true
+  }
+  sparBouts = []
+  renderSpar()
+  showScreen('spar')
+}
+
+function renderSpar(){
+  document.getElementById('spar-title').textContent = tournament.name
+  const done = sparBouts.filter(b=>b.complete).length
+  document.getElementById('spar-sub').textContent =
+    tournament.ruleset.name + ' · ' + sparBouts.length + ' bout' + (sparBouts.length===1?'':'s') + (done?(' · '+done+' scored'):'')
+
+  const list = document.getElementById('spar-list')
+  if(sparBouts.length===0){
+    list.innerHTML = '<div style="text-align:center;padding:24px 12px;color:var(--beige-muted);font-size:14px;">No bouts yet. Tap “Add bout” to start.</div>'
+    return
+  }
+
+  list.innerHTML = sparBouts.map((b,i)=>{
+    const akaWin = b.complete && b.winnerRole==='aka'
+    const aoWin  = b.complete && b.winnerRole==='ao'
+    const akaCl = akaWin ? 'winner-aka' : 'aka-color'
+    const aoCl  = aoWin  ? 'winner-ao'  : 'ao-color'
+    const scoreText = b.complete ? `<span class="b-pts">${b.s1} – ${b.s2}</span>` : ''
+    const action = b.complete
+      ? `<button class="spar-action" onclick="replayBout('${b.id}')">↻ Re-score</button>`
+      : `<button class="spar-action play" onclick="playBout('${b.id}')">▶ Score</button>`
+    return `
+      <div class="spar-bout">
+        <div class="spar-bout-num">${i+1}</div>
+        <div class="spar-bout-body">
+          <div class="b-fighter ${akaCl}" style="padding:5px 8px;"><span>${shortName(b.c1)}</span>${b.complete?'<span class="b-pts">'+b.s1+'</span>':''}</div>
+          <div class="b-sep"></div>
+          <div class="b-fighter ${aoCl}" style="padding:5px 8px;"><span>${shortName(b.c2)}</span>${b.complete?'<span class="b-pts">'+b.s2+'</span>':''}</div>
+        </div>
+        ${action}
+      </div>`
+  }).join('')
+}
+
+function openAddBout(){
+  const buildOptions = (sel) =>
+    `<option value="">— Select —</option>` +
+    tournament.competitors.map(c=>`<option value="${c.id}">${fullLabel(c)}</option>`).join('') +
+    `<optgroup label="Dojo roster">` +
+    ROSTER.filter(r=>!tournament.competitors.some(c=>c.id===r.id)).map(r=>`<option value="${r.id}">${fullLabel(r)}</option>`).join('') +
+    `</optgroup>`
+  document.getElementById('bout-c1').innerHTML = buildOptions()
+  document.getElementById('bout-c2').innerHTML = buildOptions()
+  document.getElementById('bout-error').style.display='none'
+
+  // Kata dropdowns (kata mode only) — rank-suggested then all
+  const isKata = tournament.mode==='kata'
+  document.getElementById('bout-kata1-wrap').style.display = isKata ? 'block' : 'none'
+  document.getElementById('bout-kata2-wrap').style.display = isKata ? 'block' : 'none'
+  if(isKata){
+    document.getElementById('bout-kata1').innerHTML = kataOptionsForCompetitor(null, '')
+    document.getElementById('bout-kata2').innerHTML = kataOptionsForCompetitor(null, '')
+  }
+
+  document.getElementById('add-bout').style.display='flex'
+}
+
+// Refresh a bout's kata suggestions when its competitor changes (rank-aware)
+function onBoutCompetitorChange(){
+  if(tournament.mode!=='kata') return
+  const resolve = (id)=> tournament.competitors.find(c=>c.id===id) || ROSTER.find(r=>r.id===id) || null
+  const c1 = resolve(document.getElementById('bout-c1').value)
+  const c2 = resolve(document.getElementById('bout-c2').value)
+  const k1 = document.getElementById('bout-kata1').value
+  const k2 = document.getElementById('bout-kata2').value
+  document.getElementById('bout-kata1').innerHTML = kataOptionsForCompetitor(c1, k1)
+  document.getElementById('bout-kata2').innerHTML = kataOptionsForCompetitor(c2, k2)
+}
+
+function closeAddBout(){
+  document.getElementById('add-bout').style.display='none'
+}
+
+function startBout(){
+  const id1 = document.getElementById('bout-c1').value
+  const id2 = document.getElementById('bout-c2').value
+  const err = document.getElementById('bout-error')
+  if(!id1 || !id2){ err.textContent='Pick two competitors.'; err.style.display='block'; return }
+  if(id1===id2){ err.textContent='Pick two different competitors.'; err.style.display='block'; return }
+
+  const resolve = (id)=> tournament.competitors.find(c=>c.id===id) || ROSTER.find(r=>r.id===id)
+  let c1 = resolve(id1), c2 = resolve(id2)
+  ;[c1,c2].forEach(c=>{ if(c && !tournament.competitors.some(x=>x.id===c.id)) tournament.competitors.push(c) })
+
+  // In kata mode, attach the chosen kata to a per-bout clone
+  if(tournament.mode==='kata'){
+    const k1 = document.getElementById('bout-kata1').value
+    const k2 = document.getElementById('bout-kata2').value
+    c1 = {...c1, kata:k1}
+    c2 = {...c2, kata:k2}
+  }
+
+  const bout = {id:'bout_'+uid(), c1, c2, s1:null, s2:null, winnerRole:null, complete:false}
+  sparBouts.push(bout)
+  closeAddBout()
+  playBout(bout.id)
+}
+
+function playBout(boutId){
+  const b = sparBouts.find(x=>x.id===boutId)
+  if(!b) return
+  startMatch(null, b)   // pass the bout directly
+}
+
+function replayBout(boutId){
+  const b = sparBouts.find(x=>x.id===boutId)
+  if(!b) return
+  b.complete=false; b.s1=null; b.s2=null; b.winnerRole=null
+  playBout(boutId)
+}
+
+
+// ══════════════════════════════════════════════
+// BRACKET BUILDER
+// ══════════════════════════════════════════════
+function buildBracket(competitors){
+  const n = competitors.length
+  const size = Math.pow(2, Math.ceil(Math.log2(Math.max(n,2))))
+  const padded = [...competitors]
+  while(padded.length<size) padded.push(null)
+
+  const rounds = []
+  let prevMatches = []
+  for(let i=0;i<size;i+=2){
+    const c1=padded[i], c2=padded[i+1]
+    // Bye: exactly one competitor present. Mark as bye but DO NOT auto-advance —
+    // sensei must confirm (a late entry could still fill the empty slot).
+    const isBye = (c1 && !c2) || (!c1 && c2)
+    prevMatches.push({id:uid(),c1,c2,winner:null,s1:null,s2:null,complete:false,isBye:!!isBye})
+  }
+  rounds.push({label:roundLabel(prevMatches.length*2), matches:prevMatches})
+
+  while(prevMatches.length>1){
+    const nextMatches=[]
+    for(let i=0;i<prevMatches.length;i+=2){
+      const w1 = prevMatches[i]?.winner ? findCompetitorIn(competitors, prevMatches[i].winner) : null
+      const w2 = prevMatches[i+1]?.winner ? findCompetitorIn(competitors, prevMatches[i+1].winner) : null
+      nextMatches.push({id:uid(),c1:w1,c2:w2,winner:null,s1:null,s2:null,complete:false})
+    }
+    rounds.push({label:roundLabel(nextMatches.length*2),matches:nextMatches})
+    prevMatches=nextMatches
+  }
+  return rounds
+}
+
+// Lookup helper that also checks roster (for guests pulled in later)
+// Helper: get all matches across all division brackets
+function allMatches(){ return bracket.flatMap(div=> div.rounds ? div.rounds.flatMap(r=>r.matches) : (div.matches||[])) }
+function findCompetitorIn(pool, id){
+  return pool.find(c=>c.id===id) || ROSTER.find(r=>r.id===id) || null
+}
+
+function roundLabel(total){
+  if(total<=2) return 'Final'
+  if(total<=4) return 'Semifinals'
+  if(total<=8) return 'Quarterfinals'
+  return 'Round of '+total
+}
+
+function shortName(c){ if(!c) return 'TBD'; const p=c.name.split(' '); return p[0]+(p[1]?' '+p[1][0]+'.':'') }
+
+// ══════════════════════════════════════════════
+// BRACKET RENDER
+// ══════════════════════════════════════════════
+function renderBracket(){
+  // Apply ruleset colors immediately so --ao is correct on first open and after returning
+  applyRulesetColors(tournament.rulesetId)
+
+  document.getElementById('bracket-title').textContent = tournament.name
+  document.getElementById('bracket-sub').textContent =
+    tournament.ruleset.name+' · '+tournament.bracketFormat.replace('_',' ')+' · '+tournament.competitors.length+' competitors · '+bracket.length+' division'+(bracket.length!==1?'s':'')
+
+  const row = document.getElementById('bracket-row')
+  row.innerHTML = ''
+
+  const divColors = { Beginner:'#27AE60', Intermediate:'#2980B9', Advanced:'#7B4B2A' }
+
+  bracket.forEach((div, divIdx)=>{
+    // Division section wrapper
+    const section = document.createElement('div')
+    section.className = 'division-section'
+    row.appendChild(section)
+
+    const divHeader = document.createElement('div')
+    divHeader.style.cssText = `background:${divColors[div.divisionName]||'var(--beige-muted)'};color:#fff;font-size:13px;font-weight:700;letter-spacing:.06em;padding:6px 12px;`
+    divHeader.textContent = div.divisionName.toUpperCase()
+    section.appendChild(divHeader)
+
+    const roundsRow = document.createElement('div')
+    roundsRow.className = 'division-rounds'
+    section.appendChild(roundsRow)
+
+    div.rounds.forEach((round,rIdx)=>{
+    const col = document.createElement('div')
+    col.className = 'b-col '+(rIdx%2===0?'odd':'even')
+
+    const head = document.createElement('div')
+    head.className = 'b-col-head'
+    head.textContent = round.label
+    col.appendChild(head)
+
+    const body = document.createElement('div')
+    body.className = 'b-col-body'
+
+    // spacing between matches in later rounds
+    const spacer = (h) => { const d=document.createElement('div'); d.style.height=h+'px'; return d }
+    const matchH = 68
+
+    round.matches.forEach((m,mIdx)=>{
+      if(rIdx>0){
+        const factor = Math.pow(2,rIdx)
+        const sp = mIdx===0 ? (factor/2-1)*matchH/2 : (factor-1)*matchH/2
+        if(sp>0) body.appendChild(spacer(sp))
+      }
+
+      const card = document.createElement('div')
+      card.className = 'b-match'
+
+      const isC1Win = m.winner&&m.c1&&m.winner===m.c1.id
+      const isC2Win = m.winner&&m.c2&&m.winner===m.c2.id
+
+      // A bye that hasn't been confirmed yet
+      const pendingBye = m.isBye && !m.complete && (!!m.c1 !== !!m.c2)
+
+      const mkRow = (c, score, isWinner, side) => {
+        const cl = !c?'tbd':isWinner?(side==='aka'?'winner-aka':'winner-ao'):(side==='aka'?'aka-color':'ao-color')
+        const kataTag = (tournament.mode==='kata' && c?.kata) ? `<span class="b-kata">${c.kata}</span>` : ''
+        return `<div class="b-fighter ${cl}"><span>${shortName(c)}${kataTag}</span>${score!==null&&score!==undefined?'<span class="b-pts">'+score+'</span>':''}</div>`
+      }
+
+      // Names block (left) + tall edit button (right) — every match is editable
+      card.classList.add('b-match-edit')
+      card.innerHTML = `
+        <div class="b-edit-names">
+          ${mkRow(m.c1,m.s1,isC1Win,'aka')}
+          <div class="b-sep"></div>
+          ${mkRow(m.c2,m.s2,isC2Win,'ao')}
+        </div>
+        <button class="b-edit-btn" onclick="openMatchEditor('${m.id}')" title="Change competitors">▾</button>
+      `
+
+      // Pending bye → confirmation strip under the card
+      if(pendingBye){
+        const wrap = document.createElement('div')
+        wrap.appendChild(card)
+        const byeBtn = document.createElement('button')
+        byeBtn.className = 'b-bye-btn'
+        byeBtn.textContent = '⤴ Bye — confirm advance'
+        byeBtn.onclick = () => confirmBye(m.id)
+        wrap.appendChild(byeBtn)
+        body.appendChild(wrap)
+      } else {
+        body.appendChild(card)
+      }
+    })
+
+    col.appendChild(body)
+    roundsRow.appendChild(col)
+    }) // end div.rounds.forEach
+  }) // end bracket.forEach (divisions)
+
+  renderNextMatch()
+}
+
+function renderNextMatch(){
+  const area = document.getElementById('next-match-area')
+  const next = allMatches().find(m=>!m.complete&&m.c1&&m.c2)
+  if(next){
+    area.innerHTML = `<button class="btn-navy" onclick="startMatch('${next.id}')">▶ Start — ${shortName(next.c1)} vs ${shortName(next.c2)}</button>`
+  } else {
+    area.innerHTML = `<div style="text-align:center;padding:16px;background:var(--beige-card);border-radius:10px;color:var(--beige-sub);font-size:14px;">🏆 Tournament complete</div>`
+  }
+}
+
+// Full descriptor for dropdowns: Name | Age | Belt
+function fullLabel(c){
+  if(!c) return 'TBD'
+  const age = c.age!==undefined && c.age!=='' ? ' | Age '+c.age : ''
+  const belt = c.belt ? ' | '+c.belt : ''
+  return c.name + age + belt
+}
+
+let editingMatchId = null
+
+function openMatchEditor(matchId){
+  const m = allMatches().find(x=>x.id===matchId)
+  if(!m) return
+  editingMatchId = matchId
+
+  // Build option list: this tournament's competitors first, then roster
+  const buildOptions = (selectedId) => {
+    const inTournament = tournament.competitors.map(tc=>
+      `<option value="${tc.id}" ${selectedId===tc.id?'selected':''}>${fullLabel(tc)}</option>`).join('')
+    const rosterExtra = ROSTER.filter(r=>!tournament.competitors.some(tc=>tc.id===r.id)).map(r=>
+      `<option value="${r.id}" ${selectedId===r.id?'selected':''}>${fullLabel(r)}</option>`).join('')
+    return `<option value="">— TBD —</option>
+      <optgroup label="This tournament">${inTournament}</optgroup>
+      <optgroup label="Dojo roster">${rosterExtra}</optgroup>`
+  }
+
+  document.getElementById('editor-c1').innerHTML = buildOptions(m.c1?.id||'')
+  document.getElementById('editor-c2').innerHTML = buildOptions(m.c2?.id||'')
+
+  // Kata dropdowns (kata mode only) — rank-suggested then all
+  const isKata = tournament.mode==='kata'
+  document.getElementById('editor-kata1-wrap').style.display = isKata ? 'block' : 'none'
+  document.getElementById('editor-kata2-wrap').style.display = isKata ? 'block' : 'none'
+  if(isKata){
+    document.getElementById('editor-kata1').innerHTML = kataOptionsForCompetitor(m.c1, m.c1?.kata||'')
+    document.getElementById('editor-kata2').innerHTML = kataOptionsForCompetitor(m.c2, m.c2?.kata||'')
+  }
+
+  // Winner override only for matches that already have a result (played or confirmed bye)
+  const winSection = document.getElementById('editor-winner-section')
+  if(m.complete){
+    winSection.style.display='block'
+    editorWinnerRole = (m.winner && m.c2 && m.winner===m.c2.id) ? 'ao' : 'aka'
+    updateEditorWinnerButtons(m)
+  } else {
+    winSection.style.display='none'
+    editorWinnerRole = null
+  }
+
+  // AAU: AO side is SHIRO (white). Update the editor label + winner button accordingly.
+  const aoLbl = document.getElementById('editor-ao-label')
+  if(aoLbl) aoLbl.textContent = isAAURuleset() ? 'SHIRO (white)' : 'AO (blue)'
+
+  document.getElementById('match-editor').style.display='flex'
+}
+
+// When a competitor changes in the editor, refresh that side's kata suggestions to match new rank
+function onEditorCompetitorChange(){
+  if(tournament.mode!=='kata') return
+  const resolve = (id)=> tournament.competitors.find(c=>c.id===id) || ROSTER.find(r=>r.id===id) || null
+  const c1 = resolve(document.getElementById('editor-c1').value)
+  const c2 = resolve(document.getElementById('editor-c2').value)
+  // preserve current kata pick if still valid
+  const k1 = document.getElementById('editor-kata1').value
+  const k2 = document.getElementById('editor-kata2').value
+  document.getElementById('editor-kata1').innerHTML = kataOptionsForCompetitor(c1, k1)
+  document.getElementById('editor-kata2').innerHTML = kataOptionsForCompetitor(c2, k2)
+}
+
+function updateEditorWinnerButtons(m){
+  const akaBtn=document.getElementById('editor-pick-aka')
+  const aoBtn=document.getElementById('editor-pick-ao')
+  akaBtn.textContent = shortName(m.c1)||'AKA'
+  aoBtn.textContent  = shortName(m.c2)||(isAAURuleset()?'SHIRO':'AO')
+  akaBtn.className = 'win-pick-btn ' + (editorWinnerRole==='aka'?'sel-aka':'dim')
+  aoBtn.className  = 'win-pick-btn ' + (editorWinnerRole==='ao'?'sel-ao':'dim')
+}
+
+function setEditorWinner(role){
+  editorWinnerRole = role
+  const m = allMatches().find(x=>x.id===editingMatchId)
+  if(m) updateEditorWinnerButtons(m)
+}
+
+function closeMatchEditor(){
+  document.getElementById('match-editor').style.display='none'
+  editingMatchId = null
+}
+
+function saveMatchEditor(){
+  const m = allMatches().find(x=>x.id===editingMatchId)
+  if(!m){ closeMatchEditor(); return }
+
+  const resolve = (id) => {
+    if(!id) return null
+    const comp = tournament.competitors.find(c=>c.id===id) || ROSTER.find(r=>r.id===id) || null
+    if(comp && !tournament.competitors.some(c=>c.id===comp.id)) tournament.competitors.push(comp)
+    return comp
+  }
+
+  const newC1 = resolve(document.getElementById('editor-c1').value)
+  const newC2 = resolve(document.getElementById('editor-c2').value)
+
+  // In kata mode, attach the chosen kata to a per-match clone so it doesn't bleed across matches
+  if(tournament.mode==='kata'){
+    const k1 = document.getElementById('editor-kata1').value
+    const k2 = document.getElementById('editor-kata2').value
+    m.c1 = newC1 ? {...newC1, kata:k1} : null
+    m.c2 = newC2 ? {...newC2, kata:k2} : null
+  } else {
+    m.c1 = newC1
+    m.c2 = newC2
+  }
+
+  // For a completed match, apply the explicit winner choice from the picker
+  if(m.complete && editorWinnerRole){
+    const chosen = editorWinnerRole==='aka' ? m.c1 : m.c2
+    m.winner = chosen ? chosen.id : null
+    if(!chosen) m.complete = false   // can't advance an empty slot
+  }
+
+  closeMatchEditor()
+  propagateWinners()
+  renderBracket()
+}
+
+// ══════════════════════════════════════════════
+// START MATCH
+// ══════════════════════════════════════════════
+// Returns the correct side label for a role, accounting for AAU (AO → SHIRO)
+function roleLabel(role){
+  if(role === 'ao' && isAAURuleset()) return 'SHIRO'
+  return role.toUpperCase()  // AKA or AO
+}
+
+// AAU uses red vs white instead of red vs blue
+function applyRulesetColors(rulesetId){
+  const root = document.documentElement.style
+  const isAAU = isAAURuleset(rulesetId)
+  if(isAAU){
+    root.setProperty('--ao', '#1a1208')
+  } else {
+    root.setProperty('--ao', '#1D4ED8')
+  }
+  // Toggle white-side class on whichever panel is currently AO
+  document.querySelectorAll('.fighter.ao').forEach(el=>{
+    el.classList.toggle('white-side', isAAU)
+  })
+}
+
+function startMatch(matchId, bout){
+  // bout (sparring) takes precedence; otherwise look up bracket match
+  const m = bout || allMatches().find(x=>x.id===matchId)
+  if(!m) return
+
+  // c1 = AKA (red), c2 = AO (blue) by convention
+  match = {
+    aka: { key:m.c1, score:0, yuko:0, waza:0, ippon:0, penalty:-1, senshu:false, flags:0,
+           enteredKata:m.c1?.kata||'', announcedKata:m.c1?.kata||'' },
+    ao:  { key:m.c2, score:0, yuko:0, waza:0, ippon:0, penalty:-1, senshu:false, flags:0,
+           enteredKata:m.c2?.kata||'', announcedKata:m.c2?.kata||'' },
+    leftIsAka: false,   // default: AO left, AKA right
+    log:[], matchId: bout ? null : matchId,
+    boutId: bout ? bout.id : null,
+    isKata: tournament.mode==='kata',
+    judges: tournament.judges || 0,
+    flagsLocked: false   // once flags entered, lock until reset
+  }
+
+  timerSecs = durationSecs
+  timerRunning = false
+  buzzFired = false
+  matchEnded = false
+  clearInterval(timerInterval)
+
+  document.getElementById('scorer-match-info').textContent =
+    tournament.name+' · '+tournament.ruleset.name
+  document.getElementById('scorer-nav-title').textContent = tournament.name
+  document.getElementById('scorer-nav-sub').textContent = tournament.ruleset.name+' · '+(tournament.mode==='kata'?'Kata':'Kumite')
+  document.getElementById('log-sub').textContent =
+    (m.c1?.name||'AKA')+' (AKA) vs '+(m.c2?.name||'AO')+(isAAURuleset(tournament?.rulesetId) ? ' (SHIRO)' : ' (AO)')
+
+  applyRulesetColors(tournament.rulesetId)
+  renderScorer()
+  showScreen('scorer')
+}
+
+// ══════════════════════════════════════════════
+// SCORER RENDER
+// ══════════════════════════════════════════════
+function renderScorer(){
+  const kata = match.isKata
+  // Toggle kata-specific UI on/off
+  document.getElementById('fighters').className = 'fighters' + (kata ? ' kata' : '')
+  document.getElementById('kata-center').style.display = kata ? 'flex' : 'none'
+  document.getElementById('kumite-left').style.display  = kata ? 'none' : 'block'
+  document.getElementById('kumite-right').style.display = kata ? 'none' : 'block'
+  document.getElementById('kata-left').style.display  = kata ? 'block' : 'none'
+  document.getElementById('kata-right').style.display = kata ? 'block' : 'none'
+  // Senshu dot only meaningful for kumite
+  document.getElementById('senshu-left').style.display  = kata ? 'none' : 'block'
+  document.getElementById('senshu-right').style.display = kata ? 'none' : 'block'
+
+  // Paint each physical side based on the role currently assigned to it
+  paintSide('left')
+  paintSide('right')
+
+  if(kata) renderKataCenter()
+
+  document.getElementById('timer-display').textContent = formatTime(timerSecs)
+  document.getElementById('hajime-btn').textContent = timerRunning?'YAME':'HAJIME'
+
+  // Re-apply AAU white-side class after DOM rebuild
+  if(isAAURuleset()){
+    document.querySelectorAll('.fighter.ao').forEach(el=>el.classList.add('white-side'))
+    document.getElementById('screen-bracket')?.classList.add('aau-mode')
+  } else {
+    document.getElementById('screen-bracket')?.classList.remove('aau-mode')
+  }
+
+  // Update score button labels and visibility for ruleset
+  updateScoringUI()
+}
+
+// Updates score button labels and 3rd-button visibility based on current ruleset.
+// AAU: +1 YUKO → WAZA-ARI (½ pt), +2 WAZA-ARI → IPPON (full pt), +3 IPPON hidden.
+function updateScoringUI(){
+  const aau = isAAURuleset()
+  const lblY = aau ? '+1 WAZA-ARI' : '+1 YUKO'
+  const lblW = aau ? '+2 IPPON'    : '+2 WAZA-ARI'
+  ;['left','right'].forEach(side=>{
+    const ly = document.getElementById(`btn-lbl-${side}-yuko`)
+    const lw = document.getElementById(`btn-lbl-${side}-wazaAri`)
+    const ibtn = document.getElementById(`score-btn-${side}-ippon`)
+    if(ly)   ly.textContent = lblY
+    if(lw)   lw.textContent = lblW
+    if(ibtn) ibtn.style.display = aau ? 'none' : ''
+  })
+}
+
+// Paint one physical side (left/right) with the data of whatever role sits there
+function paintSide(side){
+  const role = roleOf(side)              // 'aka' or 'ao'
+  const f = match[role]
+  const panel = document.getElementById('panel-'+side)
+
+  // Background color follows the ROLE, not the position
+  panel.className = 'fighter ' + role    // 'fighter aka' (red) or 'fighter ao' (blue)
+
+  document.getElementById('label-'+side).textContent = roleLabel(role)
+  document.getElementById('name-'+side).textContent = f.key?.name || '—'
+
+  if(match.isKata){
+    // Kata: show "Kata Name: {name}" + big flag count (winner highlighted in color, loser white)
+    const kataEl = document.getElementById('kata-'+side)
+    const announced = f.announcedKata || ''
+    const entered = f.enteredKata || ''
+    const differs = announced && entered && announced !== entered
+    const display = announced || 'Tap to set'
+    // Tappable; show a flag marker if announced differs from what was entered on the bracket
+    kataEl.innerHTML = `Kata Name: <span class="kata-tap" onclick="editAnnouncedKata('${role}')">${display}</span>${differs?' <span class="kata-flag">⚑ changed</span>':''}`
+
+    const scoreEl = document.getElementById('score-'+side)
+    scoreEl.textContent = match.flagsLocked ? f.flags : '–'
+    // Highlight: winner gets a bright treatment, loser dimmed
+    if(match.flagsLocked){
+      const otherRole = role==='aka' ? 'ao' : 'aka'
+      const isWinner = f.flags > match[otherRole].flags
+      scoreEl.style.opacity = isWinner ? '1' : '0.55'
+    } else {
+      scoreEl.style.opacity = '1'
+    }
+  } else {
+    document.getElementById('score-'+side).textContent = f.score
+    document.getElementById('score-'+side).style.opacity = '1'
+    renderDots(side,'yuko',f.yuko)
+    renderDots(side,'wazaAri',f.waza)
+    renderDots(side,'ippon',f.ippon)
+    setSenshuDot(side, f.senshu)
+    renderPenalties(side, f.penalty)
+  }
+}
+
+// Render the center flag panel: vertical columns of solid numbered circles per color.
+// Tap one number for a color → that color gets that many flags, the other auto-fills.
+function renderKataCenter(){
+  const center = document.getElementById('kata-center')
+  const n = match.judges
+  const needed = Math.floor(n/2) + 1   // majority
+
+  // Build a vertical column of circles 1..n for a given role/color
+  const circleCol = (role) => {
+    const aau = isAAURuleset()
+    const label = role==='aka' ? 'RED' : (aau ? 'WHITE' : 'BLUE')
+    const circleClass = (aau && role==='ao') ? 'kata-circle ao aau-white' : `kata-circle ${role}`
+    let cells = ''
+    for(let i=1;i<=n;i++){
+      const selected = match.flagsLocked && match[role].flags === i
+      cells += `<button class="${circleClass} ${selected?'sel':''}" onclick="setKataFlags('${role}',${i})">${i}</button>`
+    }
+    const labelClass = (aau && role==='ao') ? `kata-row-label ${role} aau-white-label` : `kata-row-label ${role}`
+    return `<div class="kata-col"><div class="${labelClass}">${label}</div>${cells}</div>`
+  }
+
+  // Order columns so the physical left color is on the left, matching the panels
+  const leftRole  = roleOf('left')
+  const rightRole = roleOf('right')
+
+  center.innerHTML = `
+    <div class="kata-center-title">${n} judges · ${needed} to win</div>
+    <div class="kata-cols">
+      ${circleCol(leftRole)}
+      ${circleCol(rightRole)}
+    </div>
+    ${match.flagsLocked
+      ? `<div class="kata-result">${match.aka.flags}–${match.ao.flags}</div><button class="kata-reset" onclick="resetKataFlags()">↻ Reset</button>`
+      : '<div class="kata-hint">Tap winner\u2019s count</div>'}
+  `
+}
+
+function renderDots(side, type, count){
+  const el = document.getElementById(`dots-${side}-${type}`)
+  if(!el) return
+  el.innerHTML = Array.from({length:count},()=>'<div class="dot"></div>').join('')
+}
+
+function setSenshuDot(side, on){
+  const el = document.getElementById('senshu-'+side)
+  if(!el) return
+  el.className = 'senshu-dot '+(on?'on':'off')
+}
+
+function renderPenalties(side, level){
+  const el = document.getElementById('penalties-'+side)
+  if(!el) return
+  const ladder = tournament.ruleset.penalties.ladder
+  el.innerHTML = ladder.map((p,i)=>{
+    const active = level>=i
+    return `<button class="flag-btn ${active?'active':'inactive'}" onclick="onPenaltyTap('${side}',${i})">${active?'⚑':'⚐'} ${p}</button>`
+  }).join('')
+}
+
+// ══════════════════════════════════════════════
+// KATA FLAG SCORING
+// ══════════════════════════════════════════════
+// Tap the winner's flag count; the loser auto-fills the remaining judges
+function setKataFlags(role, count){
+  const n = match.judges
+  const other = role==='aka' ? 'ao' : 'aka'
+  match[role].flags = count
+  match[other].flags = n - count
+  match.flagsLocked = true
+
+  const winner = match[role].flags > match[other].flags ? role
+               : match[other].flags > match[role].flags ? other : null
+
+  match.log.unshift({
+    role: winner || role,
+    name: winner ? (match[winner].key?.name||winner.toUpperCase()) : 'Tie',
+    type:'kata-flags',
+    pts:0,
+    label: winner
+      ? `Flags ${match.aka.flags}–${match.ao.flags} (AKA–${isAAURuleset()?'SHIRO':'AO'}) — ${match[winner].key?.name||winner.toUpperCase()} wins`
+      : `Flags ${match.aka.flags}–${match.ao.flags} — tie`,
+    timeRemaining: formatTime(timerSecs)
+  })
+
+  updateRecentStrip()
+  renderScorer()
+}
+
+function resetKataFlags(){
+  match.aka.flags = 0
+  match.ao.flags = 0
+  match.flagsLocked = false
+  renderScorer()
+}
+
+// ── Announced kata override (scoring page) ──
+let kataOverrideRole = null
+
+function editAnnouncedKata(role){
+  kataOverrideRole = role
+  const f = match[role]
+  document.getElementById('kata-override-sub').textContent =
+    (f.key?.name||role.toUpperCase()) + ' — ' + (f.key?.belt||'')
+  document.getElementById('kata-override-select').innerHTML =
+    kataOptionsForCompetitor(f.key, f.announcedKata || f.enteredKata || '')
+  document.getElementById('kata-override-note').textContent =
+    f.enteredKata ? ('Entered on bracket: ' + f.enteredKata) : 'No kata was entered on the bracket.'
+  document.getElementById('kata-override').style.display='flex'
+}
+
+function closeAnnouncedKata(){
+  document.getElementById('kata-override').style.display='none'
+  kataOverrideRole = null
+}
+
+function saveAnnouncedKata(){
+  if(!kataOverrideRole){ closeAnnouncedKata(); return }
+  const f = match[kataOverrideRole]
+  const newKata = document.getElementById('kata-override-select').value
+  const prevAnnounced = f.announcedKata
+  f.announcedKata = newKata
+
+  // If announced differs from what was entered on the bracket, log the discrepancy
+  if(newKata && f.enteredKata && newKata !== f.enteredKata){
+    match.log.unshift({
+      role: kataOverrideRole,
+      name: f.key?.name || kataOverrideRole.toUpperCase(),
+      type:'kata-change',
+      pts:0,
+      label:`⚑ Kata changed: announced "${newKata}" (entered "${f.enteredKata}")`,
+      timeRemaining: formatTime(timerSecs)
+    })
+    updateRecentStrip()
+  } else if(newKata && !f.enteredKata){
+    // First-time set (nothing entered on bracket) — just record it, no flag
+    match.log.unshift({
+      role: kataOverrideRole,
+      name: f.key?.name || kataOverrideRole.toUpperCase(),
+      type:'kata-set',
+      pts:0,
+      label:`Kata set: "${newKata}"`,
+      timeRemaining: formatTime(timerSecs)
+    })
+    updateRecentStrip()
+  }
+
+  closeAnnouncedKata()
+  renderScorer()
+}
+
+function updateRecentStrip(){
+  const strip = document.getElementById('recent-strip')
+  if(match.log.length===0){
+    strip.innerHTML = '<span style="font-size:12px;color:var(--beige-sub);font-style:italic;">No events yet</span>'
+    return
+  }
+  const e = match.log[0]   // e.role is 'aka' or 'ao'
+  strip.innerHTML = `
+    <div class="ev-badge ${e.role}">${e.role.toUpperCase()}</div>
+    <span style="flex:1;font-size:12px;color:#4a4030;">${e.pts>0?'+'+e.pts+' ':''} ${e.label} — ${e.name}</span>
+    <span style="font-size:11px;color:var(--beige-muted);">${e.timeRemaining}</span>
+  `
+}
+
+// ══════════════════════════════════════════════
+// SCORING
+// ══════════════════════════════════════════════
+function addScore(side, type){
+  const role = roleOf(side)
+  const f = match[role]
+  const pts = type==='yuko'?1:type==='wazaAri'?2:3
+
+  f.score += pts
+  if(type==='yuko') f.yuko++
+  else if(type==='wazaAri') f.waza++
+  else f.ippon++
+
+  // Senshu: first scorer gets it, only if neither has it yet
+  const other = role==='aka' ? 'ao' : 'aka'
+  const senshuApplied = !match.aka.senshu && !match.ao.senshu
+  if(senshuApplied) f.senshu = true
+
+  // AAU re-labels: button 1 (yuko) = Waza-ari; button 2 (wazaAri) = Ippon
+  const aau = isAAURuleset()
+  const label = aau
+    ? (type==='yuko' ? 'Waza-ari' : 'Ippon')
+    : (type==='yuko' ? 'Yuko' : type==='wazaAri' ? 'Waza-ari' : 'Ippon')
+  match.log.unshift({role, name:f.key?.name||role.toUpperCase(), type, pts, label, timeRemaining:formatTime(timerSecs), senshuApplied})
+
+  updateRecentStrip()
+  renderScorer()
+  checkWinCondition(type)
+}
+
+function checkWinCondition(type){
+  // Sparring and quick scoreboard: never auto-end on points — end manually or on time
+  if(tournament.isSpar || tournament.isQuick) return
+
+  const ruleset = tournament.ruleset
+  const winCond = tournament.winCondition
+
+  // AAU-style: win when either side reaches the target score (Ippon = 2pts, Sanbon = 6pts)
+  if(ruleset.winConditions.winScore){
+    const maxScore = Math.max(match.aka.score, match.ao.score)
+    if(maxScore >= ruleset.winConditions.winScore){ setTimeout(()=>showWinOverlay(), 200); return }
+  }
+
+  // WKF/NKF-style: ippon-ends + optional point-lead check
+  const lead = Math.abs(match.ao.score - match.aka.score)
+  const isIppon = type==='ippon' && ruleset.winConditions.ipponEnds && winCond !== 'time'
+  const isLead = winCond === 'lead' && lead >= (ruleset.winConditions.pointLead||8)
+  if(isIppon || isLead) setTimeout(()=>showWinOverlay(), 200)
+}
+
+// ══════════════════════════════════════════════
+// PENALTIES
+// ══════════════════════════════════════════════
+function onPenaltyTap(side, level){
+  const role = roleOf(side)
+  const f = match[role]
+  if(level === f.penalty+1) addPenalty(role)   // auto-advance
+  else f.penalty = level                        // manual override
+  renderScorer()
+}
+
+function addPenalty(role){
+  const ladder = tournament.ruleset.penalties.ladder
+  const f = match[role]
+  const next = Math.min(f.penalty+1, ladder.length-1)
+  if(next===f.penalty) return
+  f.penalty = next
+
+  const penName = ladder[next]
+  // HC awards points to opponent
+  if(penName==='HC'){
+    const pts = tournament.ruleset.penalties.HCPoints
+    const other = role==='aka' ? 'ao' : 'aka'
+    match[other].score += pts
+  }
+
+  match.log.unshift({role, name:f.key?.name||role.toUpperCase(), type:'penalty', pts:0, label:penName+' — '+tournament.ruleset.penalties.labels[penName], timeRemaining:formatTime(timerSecs)})
+  updateRecentStrip()
+  renderScorer()
+}
+
+// ══════════════════════════════════════════════
+// SENSHU
+// ══════════════════════════════════════════════
+function toggleSenshu(side){
+  const role = roleOf(side)
+  match[role].senshu = !match[role].senshu
+  renderScorer()
+}
+
+// ══════════════════════════════════════════════
+// SWAP SIDES — one flag flip, data stays with role
+// ══════════════════════════════════════════════
+function swapSides(){
+  match.leftIsAka = !match.leftIsAka
+  renderScorer()
+  updateRecentStrip()
+}
+
+// ══════════════════════════════════════════════
+// UNDO
+// ══════════════════════════════════════════════
+function undoLast(){
+  if(match.log.length===0) return
+  const last = match.log.shift()
+  const f = match[last.role]
+  if(last.type==='penalty'){
+    f.penalty = Math.max(-1, f.penalty-1)
+  } else {
+    f.score = Math.max(0, f.score - last.pts)
+    if(last.type==='yuko') f.yuko = Math.max(0,f.yuko-1)
+    else if(last.type==='wazaAri') f.waza = Math.max(0,f.waza-1)
+    else f.ippon = Math.max(0,f.ippon-1)
+    if(last.senshuApplied) f.senshu = false
+  }
+  updateRecentStrip()
+  renderScorer()
+}
+
+// ══════════════════════════════════════════════
+// TIMER
+// ══════════════════════════════════════════════
+// Adjust remaining time by delta seconds (works whether running or stopped)
+function adjustTime(delta){
+  timerSecs = Math.max(0, timerSecs + delta)
+  document.getElementById('timer-display').textContent = formatTime(timerSecs)
+  buzzFired = false   // allow buzzer to fire again if we added time back
+}
+
+// Tap the clock to type a new time (mm:ss or seconds)
+function editTime(){
+  const cur = formatTime(timerSecs)
+  const input = prompt('Set match time (mm:ss or seconds):', cur)
+  if(input===null) return
+  let secs = 0
+  if(input.includes(':')){
+    const [m,s] = input.split(':').map(x=>parseInt(x)||0)
+    secs = m*60 + s
+  } else {
+    secs = parseInt(input)||0
+  }
+  timerSecs = Math.max(0, secs)
+  durationSecs = timerSecs   // so elapsed calc in event log stays sane
+  buzzFired = false
+  document.getElementById('timer-display').textContent = formatTime(timerSecs)
+}
+
+function toggleTimer(){
+  unlockAudio()   // user gesture — unlock audio so buzzer can sound later
+  timerRunning=!timerRunning
+  document.getElementById('hajime-btn').textContent=timerRunning?'YAME':'HAJIME'
+  if(timerRunning){
+    timerInterval=setInterval(()=>{
+      timerSecs--
+      // Fire buzzer once, exactly when crossing the buzz threshold (and only if buzzer is on)
+      if(buzzAt>0 && timerSecs===buzzAt && !buzzFired){ playBuzz(); buzzFired=true }
+      if(timerSecs<=0){
+        timerSecs=0; timerRunning=false
+        clearInterval(timerInterval)
+        document.getElementById('hajime-btn').textContent='HAJIME'
+        playBuzz()   // end-of-match buzzer
+        showWinOverlay()
+      }
+      document.getElementById('timer-display').textContent=formatTime(timerSecs)
+    },1000)
+  } else {
+    clearInterval(timerInterval)
+  }
+}
+
+function cycleBuzzer(){
+  buzzAt = buzzAt===30?10:buzzAt===10?0:30
+  document.getElementById('buzz-label').textContent=buzzAt===0?'Off':buzzAt+'s'
+  buzzFired=false
+}
+
+// Create + resume AudioContext from a user gesture so mobile browsers allow sound
+function unlockAudio(){
+  try{
+    if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)()
+    if(audioCtx.state==='suspended') audioCtx.resume()
+  }catch(e){}
+}
+
+function playBuzz(){
+  try{
+    if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)()
+    if(audioCtx.state==='suspended') audioCtx.resume()
+    const osc=audioCtx.createOscillator(), gain=audioCtx.createGain()
+    osc.connect(gain); gain.connect(audioCtx.destination)
+    osc.type='square'
+    osc.frequency.value=880
+    gain.gain.setValueAtTime(0.35,audioCtx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001,audioCtx.currentTime+0.9)
+    osc.start(audioCtx.currentTime); osc.stop(audioCtx.currentTime+0.9)
+  }catch(e){}
+}
+
+function formatTime(s){
+  const m=Math.floor(s/60), sec=s%60
+  return m+':'+(sec<10?'0':'')+sec
+}
+
+// ══════════════════════════════════════════════
+// END MATCH
+// ══════════════════════════════════════════════
+let matchEnded = false   // guard so a match can only end once
+
+function endMatch(){ showWinOverlay() }
+
+function abandonMatch(){
+  // Close the overlay and reset state — nothing is recorded
+  document.getElementById('win-overlay').style.display='none'
+  matchEnded = false
+  timerRunning = false
+  clearInterval(timerInterval)
+  document.getElementById('hajime-btn').textContent = 'HAJIME'
+
+  const t = typeof tournament !== 'undefined' ? tournament : null
+  if(!t || t.isQuick){
+    initSetup()
+    showScreen('setup')
+  } else if(t.isSpar){
+    showScreen('spar')
+  } else {
+    showScreen('bracket')
+  }
+}
+
+function showWinOverlay(){
+  if(matchEnded) return   // already showing / already ended
+  matchEnded = true
+  timerRunning=false; clearInterval(timerInterval)
+  document.getElementById('hajime-btn').textContent='HAJIME'
+
+  if(match.isKata){
+    // Kata: winner by flag majority
+    const aoWins = match.ao.flags > match.aka.flags
+    chosenWinnerRole = aoWins ? 'ao' : 'aka'
+    document.getElementById('win-ao-score').textContent = match.ao.flags
+    document.getElementById('win-aka-score').textContent = match.aka.flags
+  } else {
+    // Kumite: higher score; if tied, Senshu decides
+    const aoWins = match.ao.score>match.aka.score || (match.ao.score===match.aka.score && match.ao.senshu && !match.aka.senshu)
+    chosenWinnerRole = aoWins ? 'ao' : 'aka'
+    document.getElementById('win-ao-score').textContent=match.ao.score
+    document.getElementById('win-aka-score').textContent=match.aka.score
+  }
+
+  // Picker buttons show each fighter's name
+  document.getElementById('pick-aka').textContent = (match.aka.key?.name||'AKA')
+  document.getElementById('pick-ao').textContent  = (match.ao.key?.name||'AO')
+  // AAU: relabel AO → SHIRO and style score box as black rounded square
+  const isAAU = isAAURuleset()
+  document.getElementById('win-ao-lbl').textContent = isAAU ? 'SHIRO' : 'AO'
+  const aoScore = document.getElementById('win-ao-score')
+  const aoBlock = document.getElementById('win-ao-block')
+  if(isAAU){
+    aoBlock.style.cssText = 'background:#111;border-radius:12px;padding:10px 18px;'
+    aoScore.style.color = '#ffffff'
+    document.getElementById('win-ao-lbl').style.color = '#ffffff'
+  } else {
+    aoBlock.style.cssText = ''
+    aoScore.style.color = 'var(--ao)'
+    document.getElementById('win-ao-lbl').style.color = ''
+  }
+
+  updateWinPicker()
+  document.getElementById('win-overlay').style.display='flex'
+}
+
+function pickWinner(role){
+  chosenWinnerRole = role
+  updateWinPicker()
+}
+
+function updateWinPicker(){
+  const akaBtn = document.getElementById('pick-aka')
+  const aoBtn  = document.getElementById('pick-ao')
+  akaBtn.className = 'win-pick-btn ' + (chosenWinnerRole==='aka' ? 'sel-aka' : 'dim')
+  aoBtn.className  = 'win-pick-btn ' + (chosenWinnerRole==='ao'  ? 'sel-ao'  : 'dim')
+
+  const winnerKey = chosenWinnerRole==='aka' ? match.aka.key : match.ao.key
+  const isAAUWin = isAAURuleset()
+  const winSide = chosenWinnerRole==='aka' ? 'AKA (red)' : (isAAUWin ? 'SHIRO (white)' : 'AO (blue)')
+  document.getElementById('win-name').textContent = winnerKey?.name || 'Winner'
+  document.getElementById('win-side').textContent = winSide+' wins'
+}
+
+function confirmMatchEnd(){
+  document.getElementById('win-overlay').style.display='none'
+
+  // Quick match has no bracket to update — just go back to setup
+  if(tournament.isQuick){
+    initSetup()
+    showScreen('setup')
+    return
+  }
+
+  // Sparring bout — save result to the flat log, return to spar screen
+  if(tournament.isSpar){
+    const b = sparBouts.find(x=>x.id===match.boutId)
+    if(b){
+      b.s1 = match.isKata ? match.aka.flags : match.aka.score
+      b.s2 = match.isKata ? match.ao.flags  : match.ao.score
+      b.winnerRole = chosenWinnerRole
+      b.complete = true
+    }
+    renderSpar()
+    showScreen('spar')
+    return
+  }
+
+  // Use the confirmed/overridden winner
+  const winner = chosenWinnerRole==='aka' ? match.aka.key : match.ao.key
+  const akaResult = match.isKata ? match.aka.flags : match.aka.score
+  const aoResult  = match.isKata ? match.ao.flags  : match.ao.score
+
+  // Record result in bracket — c1 is AKA, c2 is AO
+  allMatches().forEach(m=>{
+    if(m.id===match.matchId){
+      m.winner=winner?.id; m.s1=akaResult; m.s2=aoResult; m.complete=true
+    }
+  })
+
+  propagateWinners()
+  renderBracket()
+  showScreen('bracket')
+}
+
+// Re-flow winners into the next round's slots, everywhere
+function propagateWinners(){
+  // Propagate within each division's bracket independently
+  bracket.forEach(div=>{
+    const rounds = div.rounds
+    for(let r=0;r<rounds.length-1;r++){
+      const cur=rounds[r], nxt=rounds[r+1]
+      for(let i=0;i<cur.matches.length;i+=2){
+        const ni=Math.floor(i/2)
+        if(nxt.matches[ni]){
+          nxt.matches[ni].c1=cur.matches[i]?.winner?findCompetitor(cur.matches[i].winner):null
+          nxt.matches[ni].c2=cur.matches[i+1]?.winner?findCompetitor(cur.matches[i+1].winner):null
+        }
+      }
+    }
+  })
+}
+
+// Confirm a bye advance (the lone competitor moves on, no match played)
+function confirmBye(matchId){
+  const m = allMatches().find(x=>x.id===matchId)
+  if(!m) return
+  const advancer = m.c1 || m.c2
+  if(!advancer) return
+  m.winner = advancer.id
+  m.complete = true
+  m.s1 = null; m.s2 = null   // no score for a bye
+  propagateWinners()
+  renderBracket()
+}
+
+function findCompetitor(id){
+  return tournament.competitors.find(c=>c.id===id) || ROSTER.find(r=>r.id===id) || null
+}
+
+// ══════════════════════════════════════════════
+// EVENT LOG SCREEN
+// ══════════════════════════════════════════════
+function showEventLog(){
+  const aau = isAAURuleset()
+  if(match.isKata){
+    document.getElementById('log-ao-pts').textContent=match.ao.flags
+    document.getElementById('log-aka-pts').textContent=match.aka.flags
+    document.querySelectorAll('.log-stat-lbl')[0].textContent=(aau?'SHIRO flags':'AO flags')
+    document.querySelectorAll('.log-stat-lbl')[2].textContent='AKA flags'
+  } else {
+    document.getElementById('log-ao-pts').textContent=match.ao.score
+    document.getElementById('log-aka-pts').textContent=match.aka.score
+    document.querySelectorAll('.log-stat-lbl')[0].textContent=(aau?'SHIRO pts':'AO pts')
+    document.querySelectorAll('.log-stat-lbl')[2].textContent='AKA pts'
+  }
+  const elapsed = durationSecs - timerSecs
+  document.getElementById('log-elapsed').textContent=formatTime(elapsed)
+
+  const container=document.getElementById('log-entries')
+  if(match.log.length===0){
+    container.innerHTML='<div class="empty-log">No events yet</div>'
+  } else {
+    container.innerHTML=match.log.map(e=>`
+      <div class="log-entry">
+        <div class="log-badge ${e.role}" style="${e.role==='ao'&&aau?'background:#111;':''}">${e.role==='ao'&&aau?'SHIRO':e.role.toUpperCase()}</div>
+        <div style="flex:1;">
+          <div class="log-pts">${e.pts>0?'+'+e.pts+' · ':''}${e.label}${e.senshuApplied?'<span style="font-size:11px;color:var(--gold);margin-left:6px;">● Senshu</span>':''}</div>
+          <div class="log-note">${e.name}</div>
+        </div>
+        <div class="log-time">${e.timeRemaining}</div>
+      </div>
+    `).join('')
+  }
+  showScreen('log')
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+initSetup()
+</script>
+</body>
+</html>
