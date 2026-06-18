@@ -4,6 +4,8 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
 <title>RankKeeper · Tournament</title>
+<!-- Supabase JS (same project as RankKeeper) — lets ScoreKeeper pull the shared dojo roster cross-device -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
   --beige-bg:      #F5F0E8;
@@ -309,14 +311,17 @@ select{appearance:none;}
         <label class="label">Ruleset</label>
         <div class="sel-wrap mb"><select id="t-ruleset">
           <option value="wkf">WKF</option>
+          <option value="pkf">PKF (Pan American)</option>
           <option value="nka">USA NKF</option>
-          <option value="aau">AAU (currently in development)</option>
+          <option value="aau_ippon">AAU — Shobu Ippon</option>
+          <option value="aau_sanbon">AAU — Shobu Sanbon</option>
         </select></div>
       </div>
       <div>
         <label class="label">Bracket format</label>
         <div class="sel-wrap mb"><select id="t-bracket">
           <option value="single">Single elimination</option>
+          <option value="double" disabled>Double elimination (coming soon)</option>
         </select></div>
       </div>
       <div>
@@ -432,10 +437,18 @@ select{appearance:none;}
 ════════════════════════════════════════════ -->
 <div class="screen" id="screen-scorer">
   <div class="scorer-wrap">
+    <div class="nav">
+      <div>
+        <div class="nav-title" id="scorer-nav-title" style="font-size:16px;"></div>
+        <div class="nav-sub" id="scorer-nav-sub"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button onclick="showEventLog()" style="font-size:13px;color:var(--gold);border:0.5px solid var(--gold);border-radius:20px;padding:4px 12px;background:none;cursor:pointer;">📋 Log</button>
+        <button class="nav-btn" onclick="abandonMatch()">← Back</button>
+      </div>
+    </div>
     <div class="top-strip">
-      <button onclick="abandonMatch()" style="font-size:12px;color:var(--beige-sub);border:0.5px solid var(--beige-border);border-radius:20px;padding:3px 10px;background:none;cursor:pointer;">← Back</button>
-      <span id="scorer-match-info" style="font-size:11px;color:var(--beige-sub);"></span>
-      <button onclick="showEventLog()" style="font-size:11px;color:var(--navy);border:0.5px solid var(--navy);border-radius:20px;padding:3px 10px;">📋 Event log</button>
+      <span id="scorer-match-info" style="font-size:13px;color:var(--beige-sub);"></span>
     </div>
     <div class="recent-strip" id="recent-strip">
       <span style="font-size:12px;color:var(--beige-sub);font-style:italic;">No events yet</span>
@@ -457,16 +470,16 @@ select{appearance:none;}
         <!-- Kumite controls -->
         <div class="kumite-controls" id="kumite-left">
           <div class="score-btns">
-            <button class="score-btn" onclick="addScore('left','yuko')">
-              <span class="btn-label">+1 YUKO</span>
+            <button class="score-btn" id="score-btn-left-yuko" onclick="addScore('left','yuko')">
+              <span class="btn-label" id="btn-lbl-left-yuko">+1 YUKO</span>
               <div class="dots-row" id="dots-left-yuko"></div>
             </button>
-            <button class="score-btn" onclick="addScore('left','wazaAri')">
-              <span class="btn-label">+2 WAZA-ARI</span>
+            <button class="score-btn" id="score-btn-left-wazaAri" onclick="addScore('left','wazaAri')">
+              <span class="btn-label" id="btn-lbl-left-wazaAri">+2 WAZA-ARI</span>
               <div class="dots-row" id="dots-left-wazaAri"></div>
             </button>
-            <button class="score-btn" onclick="addScore('left','ippon')">
-              <span class="btn-label">+3 IPPON</span>
+            <button class="score-btn" id="score-btn-left-ippon" onclick="addScore('left','ippon')">
+              <span class="btn-label" id="btn-lbl-left-ippon">+3 IPPON</span>
               <div class="dots-row" id="dots-left-ippon"></div>
             </button>
           </div>
@@ -488,16 +501,16 @@ select{appearance:none;}
         <!-- Kumite controls -->
         <div class="kumite-controls" id="kumite-right">
           <div class="score-btns">
-            <button class="score-btn" onclick="addScore('right','yuko')">
-              <span class="btn-label">+1 YUKO</span>
+            <button class="score-btn" id="score-btn-right-yuko" onclick="addScore('right','yuko')">
+              <span class="btn-label" id="btn-lbl-right-yuko">+1 YUKO</span>
               <div class="dots-row" id="dots-right-yuko"></div>
             </button>
-            <button class="score-btn" onclick="addScore('right','wazaAri')">
-              <span class="btn-label">+2 WAZA-ARI</span>
+            <button class="score-btn" id="score-btn-right-wazaAri" onclick="addScore('right','wazaAri')">
+              <span class="btn-label" id="btn-lbl-right-wazaAri">+2 WAZA-ARI</span>
               <div class="dots-row" id="dots-right-wazaAri"></div>
             </button>
-            <button class="score-btn" onclick="addScore('right','ippon')">
-              <span class="btn-label">+3 IPPON</span>
+            <button class="score-btn" id="score-btn-right-ippon" onclick="addScore('right','ippon')">
+              <span class="btn-label" id="btn-lbl-right-ippon">+3 IPPON</span>
               <div class="dots-row" id="dots-right-ippon"></div>
             </button>
           </div>
@@ -627,31 +640,66 @@ select{appearance:none;}
 // RULESETS
 // ══════════════════════════════════════════════
 const RULESETS = {
+  // WKF: Senior/U21 = 3min, Cadet/Junior = 2min, U14 = 1.5min. Default is 3min (Senior).
+  // Use the match duration dropdown to override for Cadet/Junior or non-elite events.
   wkf: {
     name:"WKF", defaultDuration:180,
     scoring:{yuko:1,wazaAri:2,ippon:3},
     winConditions:{pointLead:8,ipponEnds:true},
     senshu:true,
     penalties:{ladder:["C1","C2","HC","H"],labels:{C1:"Chukoku 1",C2:"Chukoku 2",HC:"Hansoku-chui",H:"Hansoku"},HCPoints:3},
-    kata:{defaultDuration:90}   // WKF kata judging (panel) deferred to v2; flag mode used for now
+    kata:{defaultDuration:90}
   },
+  // PKF uses WKF Competition Rules effective 2024 (per pkfkarate.com)
+  pkf: {
+    name:"PKF", defaultDuration:180,
+    scoring:{yuko:1,wazaAri:2,ippon:3},
+    winConditions:{pointLead:8,ipponEnds:true},
+    senshu:true,
+    penalties:{ladder:["C1","C2","HC","H"],labels:{C1:"Chukoku 1",C2:"Chukoku 2",HC:"Hansoku-chui",H:"Hansoku"},HCPoints:3},
+    kata:{defaultDuration:90}
+  },
+  // USA NKF: 1:30 for ALL categories (USA Karate Rules of Competition, January 1, 2026, Article 5)
   nka: {
-    name:"USA NKF", defaultDuration:120,
+    name:"USA NKF", defaultDuration:90,
     scoring:{yuko:1,wazaAri:2,ippon:3},
     winConditions:{pointLead:8,ipponEnds:true},
     senshu:true,
     penalties:{ladder:["C1","C2","HC","H"],labels:{C1:"Chukoku 1",C2:"Chukoku 2",HC:"Hansoku-chui",H:"Hansoku"},HCPoints:3},
     kata:{defaultDuration:90}
   },
-  aau: {
-    name:"AAU", defaultDuration:120,
+  // AAU Shobu Ippon: win by 1 Ippon (2 display pts) or 2 Waza-ari. Duration: 2:00 all divisions.
+  // Scoring display: +1 = Waza-ari (½pt), +2 = Ippon (full pt). No +3 button shown.
+  aau_ippon: {
+    name:"AAU Ippon", defaultDuration:120,
     scoring:{yuko:1,wazaAri:2,ippon:3},
-    winConditions:{pointLead:8,ipponEnds:true},
+    winConditions:{winScore:2},
     senshu:true,
-    penalties:{ladder:["C1","C2","HC","H"],labels:{C1:"Chukoku 1",C2:"Chukoku 2",HC:"Hansoku-chui",H:"Hansoku"},HCPoints:3},
-    kata:{defaultDuration:90}
+    penalties:{
+      ladder:["Chukoku","Hansoku-chui","Hansoku"],
+      labels:{Chukoku:"Chukoku (Warning)","Hansoku-chui":"Hansoku-chui (Penalty)",Hansoku:"Hansoku (DQ)"},
+      HCPoints:2
+    },
+    kata:{defaultDuration:90,scoreRanges:{Beginner:[5.0,7.0],Novice:[5.5,7.5],Intermediate:[6.0,8.0],Advanced:[6.5,8.5]}}
+  },
+  // AAU Shobu Sanbon: win by 3 Ippon equiv (6 display pts). Duration: 2:00 (adult BB 18-34 = 3:00).
+  // For adult black belt 18-34 matches, select 3:00 from the duration dropdown.
+  aau_sanbon: {
+    name:"AAU Sanbon", defaultDuration:120,
+    scoring:{yuko:1,wazaAri:2,ippon:3},
+    winConditions:{winScore:6},
+    senshu:false,
+    penalties:{
+      ladder:["Jogai-ichi","Jogai-ni","Hansoku-chui","Hansoku"],
+      labels:{"Jogai-ichi":"Jogai Ichi (1st Warning)","Jogai-ni":"Jogai Ni (2nd Warning)","Hansoku-chui":"Hansoku-chui (Penalty)",Hansoku:"Hansoku (DQ)"},
+      HCPoints:2
+    },
+    kata:{defaultDuration:90,scoreRanges:{Beginner:[5.0,7.0],Novice:[5.5,7.5],Intermediate:[6.0,8.0],Advanced:[6.5,8.5]}}
   }
 }
+
+// Returns true for any AAU ruleset variant
+function isAAURuleset(id){ return ((id!==undefined?id:(tournament?.rulesetId||''))).startsWith('aau') }
 
 // Full kata list (everything selectable)
 const KATA_LIST = [
@@ -678,7 +726,7 @@ const KATA_ADVANCED = [...KATA_INTER,
 // Map a belt color to its suggested kata list
 function suggestedKataForBelt(belt){
   const b = (belt||"").toLowerCase()
-  if(b.includes("white")||b.includes("yellow")) return KATA_BEGINNER
+  if(b.includes("white")||b.includes("yellow")||b.includes("red")) return KATA_BEGINNER
   if(b.includes("orange")||b.includes("green"))  return KATA_NOVICE
   if(b.includes("blue")||b.includes("purple"))   return KATA_INTER
   if(b.includes("brown")||b.includes("black"))   return KATA_ADVANCED
@@ -703,24 +751,164 @@ function kataOptionsForCompetitor(competitor, selected){
 }
 
 // ══════════════════════════════════════════════
-// MOCK ROSTER — replace with RankKeeper data on merge
 // ══════════════════════════════════════════════
-const ROSTER = [
-  {id:"r1",name:"Kenji Tanaka",age:14,belt:"Brown"},
-  {id:"r2",name:"Marcus Webb",age:16,belt:"Black"},
-  {id:"r3",name:"Sofia Reyes",age:13,belt:"Purple"},
-  {id:"r4",name:"Amir Khan",age:15,belt:"Blue"},
-  {id:"r5",name:"Lena Park",age:14,belt:"Brown"},
-  {id:"r6",name:"Yuki Sato",age:12,belt:"Green"},
-  {id:"r7",name:"Jordan Ellis",age:17,belt:"Black"},
-  {id:"r8",name:"Maya Chen",age:11,belt:"Yellow"},
-]
+// LIVE DOJO ROSTER — pulled from RankKeeper (shared localStorage on rankkeeper.app)
+// RankKeeper stores localStorage["gsb:students"] = { roster:[{id,name,dob,beltColor}], history:[...] }
+// ScoreKeeper needs {id, name, age, belt}. We derive age from dob and belt from beltColor
+// (falling back to the rank's default color via rank history if no explicit beltColor).
+// ══════════════════════════════════════════════
+
+// Rank -> default belt color (JKA Shotokan), used only when a student has no explicit beltColor
+const RANK_TO_BELT_SK = {
+  'Beginner':'White','10th Kyu':'White','9th Kyu':'Orange','8th Kyu':'Red',
+  '7th Kyu':'Yellow','6th Kyu':'Green','5th Kyu':'Blue','4th Kyu':'Purple',
+  '3rd Kyu':'Brown','2nd Kyu':'Brown','1st Kyu':'Brown',
+  'Shodan':'Black','Nidan':'Black','Sandan':'Black','Yondan':'Black','Godan':'Black',
+  'Rokudan':'Black','Shichidan':'Black','Hachidan':'Black','Kudan':'Black',
+}
+
+function ageFromDob(dob){
+  if(!dob) return '—'
+  const d = new Date(dob)
+  if(isNaN(d)) return '—'
+  const now = new Date()
+  let a = now.getFullYear() - d.getFullYear()
+  const m = now.getMonth() - d.getMonth()
+  if(m < 0 || (m === 0 && now.getDate() < d.getDate())) a--
+  return a >= 0 && a < 130 ? a : '—'
+}
+
+function currentRankFromHistory(history, sid){
+  const passes = (history||[])
+    .filter(h => h.studentId === sid && h.result === 'Pass')
+    .sort((a,b) => (a.date < b.date ? 1 : -1))
+  return passes.length ? passes[0].rank : 'Beginner'
+}
+
+// ══════════════════════════════════════════════════════════════
+// SHARED ROSTER — single source of truth across RankKeeper + ScoreKeeper
+// ──────────────────────────────────────────────────────────────
+// RankKeeper writes students to (a) device localStorage 'gsb:students' AND
+// (b) Supabase. ScoreKeeper reads BOTH:
+//   • Supabase  → works cross-device (grade on iPad, score on a laptop)
+//   • localStorage → instant + offline fallback on the same device
+// Both apps live on rankkeeper.app, so ScoreKeeper reuses RankKeeper's saved
+// Supabase auth session automatically — no separate login.
+// ══════════════════════════════════════════════════════════════
+
+// SAME Supabase project as RankKeeper. The anon key is public by design
+// (client-side, protected by Row-Level Security) — safe to ship here.
+const SUPABASE_URL = 'https://vxrsvhgdzqauofhsazkf.supabase.co'
+const SUPABASE_ANON_KEY = 'PASTE_VITE_SUPABASE_ANON_KEY_HERE'
+
+let _sb = null
+function sbClient(){
+  if(_sb) return _sb
+  if(!window.supabase || SUPABASE_ANON_KEY.startsWith('PASTE_')) return null
+  try {
+    // No custom storageKey: Supabase uses its default (sb-<projectref>-auth-token),
+    // which is exactly what RankKeeper uses — so ScoreKeeper reuses the same session.
+    _sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      auth: { persistSession: true, autoRefreshToken: true }
+    })
+    return _sb
+  } catch(e){ console.warn('Supabase client init failed:', e); return null }
+}
+
+// Reads RankKeeper students from LOCAL storage and returns them in ScoreKeeper shape.
+function loadDojoRosterLocal(){
+  try {
+    const raw = localStorage.getItem('gsb:students')
+    if(!raw) return []
+    const data = JSON.parse(raw)
+    const roster = data.roster || []
+    const history = data.history || []
+    return roster.map(s => {
+      const rank = currentRankFromHistory(history, s.id)
+      const belt = s.beltColor || RANK_TO_BELT_SK[rank] || 'White'
+      return { id: s.id, name: s.name, age: ageFromDob(s.dob), belt, rank }
+    })
+  } catch(e){
+    console.warn('Could not load local dojo roster:', e)
+    return []
+  }
+}
+
+// Reads the FULL roster from Supabase (cross-device). Returns [] if no session/offline.
+async function loadDojoRosterRemote(){
+  const sb = sbClient()
+  if(!sb) return []
+  try {
+    const { data: { user } } = await sb.auth.getUser()
+    if(!user){ console.log('[roster] no Supabase session — using local only'); return [] }
+
+    const { data: students, error } = await sb
+      .from('students').select('*')
+      .eq('dojo_id', user.id).eq('active', true).order('name')
+    if(error){ console.warn('[roster] students fetch error:', error); return [] }
+    if(!students || !students.length) return []
+
+    // Pull rank history to derive each student's current rank (for kata suggestions)
+    const { data: tests } = await sb
+      .from('rank_tests').select('*')
+      .eq('dojo_id', user.id).order('test_date', { ascending: true })
+
+    const rankOf = {}
+    ;(tests || []).forEach(t => {
+      if(t.result === 'pass') rankOf[t.student_id] = t.tested_belt
+    })
+
+    return students.map(s => {
+      const rank = rankOf[s.id] || 'Beginner'
+      const belt = s.belt || RANK_TO_BELT_SK[rank] || 'White'  // s.belt holds the color in Supabase
+      return { id: s.app_id || s.id, name: s.name, age: ageFromDob(s.dob), belt, rank }
+    })
+  } catch(e){
+    console.warn('[roster] remote load failed, falling back to local:', e)
+    return []
+  }
+}
+
+// Merge remote + local by student id (remote/local both keyed on the same app id).
+// Remote is the cross-device source of truth; local fills any gap when offline.
+function mergeRosters(remote, local){
+  const byId = {}
+  local.forEach(s => { byId[s.id] = s })
+  remote.forEach(s => { byId[s.id] = s })   // remote wins on conflict
+  return Object.values(byId).sort((a,b) => a.name.localeCompare(b.name))
+}
+
+// Refreshes the global ROSTER from Supabase (if available) + local, then re-renders
+// any open setup slots so the dropdowns show the full shared list.
+async function refreshRoster(){
+  const local = loadDojoRosterLocal()
+  ROSTER = local                      // show local immediately (fast/offline)
+  try {
+    const remote = await loadDojoRosterRemote()
+    if(remote.length){
+      ROSTER = mergeRosters(remote, local)
+      // Re-render setup slots if we're on the setup screen
+      if(document.getElementById('comp-slots') && document.querySelector('#comp-slots .seed')){
+        rebuildSlots()
+      }
+    }
+  } catch(e){ /* keep local roster */ }
+  return ROSTER
+}
+
+// Synchronous initial load (local) so the UI is never empty; remote refresh follows.
+function loadDojoRoster(){ return loadDojoRosterLocal() }
+
+// Live roster — local first, then enriched from Supabase.
+let ROSTER = loadDojoRoster()
 
 // Belt ranks with display colors (for guest entry dropdown + dots)
+// Includes Red for JKA 8th Kyu
 const BELTS = [
   {name:"White",  color:"#F5F5F5"},
   {name:"Yellow", color:"#F4D03F"},
   {name:"Orange", color:"#E67E22"},
+  {name:"Red",    color:"#CC4444"},
   {name:"Green",  color:"#27AE60"},
   {name:"Blue",   color:"#2980B9"},
   {name:"Purple", color:"#8E44AD"},
@@ -796,9 +984,11 @@ function setMode(mode){
 }
 
 function initSetup(){
+  ROSTER = loadDojoRosterLocal()   // instant local list so the screen is never empty
   slots = []
   document.getElementById('comp-slots').innerHTML = ''
   addSlot(); addSlot(); addSlot(); addSlot()
+  refreshRoster()                  // then pull the full shared roster from Supabase (cross-device)
 }
 
 // Rebuild all slots preserving current selections (used when switching mode)
@@ -834,7 +1024,7 @@ function addSlot(competitorId, savedState){
       <div class="roster-area" id="roster-${id}">
         <div class="sel-wrap">
           <select onchange="onSlotChange('${id}',this.value)">
-            <option value="">— Select —</option>
+            <option value="">${ROSTER.length ? '— Select from dojo roster —' : '— No students yet (add in RankKeeper) —'}</option>
             ${ROSTER.map(r=>`<option value="${r.id}" ${r.id===selId?'selected':''}>${r.name} | Age ${r.age} | ${r.belt}</option>`).join('')}
           </select>
         </div>
@@ -923,10 +1113,14 @@ function resolveCompetitor(slot){
 // ══════════════════════════════════════════════
 // BELT DIVISIONS
 // ══════════════════════════════════════════════
+// Three divisions matching all four systems (JKA / WKF / AAU / USA NKF):
+// Beginner = White, Yellow, Orange (JKA also includes Red for 8th Kyu)
+// Intermediate = Green, Blue, Purple
+// Advanced = Brown, Black
 const DIVISIONS = [
-  { name:'Beginner',     belts:['White','Yellow','Orange'], order:0 },
-  { name:'Intermediate', belts:['Green','Blue'],            order:1 },
-  { name:'Advanced',     belts:['Purple','Brown','Black'],  order:2 },
+  { name:'Beginner',     belts:['White','Yellow','Orange','Red'], order:0 },
+  { name:'Intermediate', belts:['Green','Blue','Purple'],         order:1 },
+  { name:'Advanced',     belts:['Brown','Black'],                 order:2 },
 ]
 function beltDivision(belt){
   return DIVISIONS.find(d=>d.belts.map(b=>b.toLowerCase()).includes((belt||'').toLowerCase())) || { name:'Beginner', order:0 }
@@ -1378,6 +1572,10 @@ function openMatchEditor(matchId){
     editorWinnerRole = null
   }
 
+  // AAU: AO side is SHIRO (white). Update the editor label + winner button accordingly.
+  const aoLbl = document.getElementById('editor-ao-label')
+  if(aoLbl) aoLbl.textContent = isAAURuleset() ? 'SHIRO (white)' : 'AO (blue)'
+
   document.getElementById('match-editor').style.display='flex'
 }
 
@@ -1398,7 +1596,7 @@ function updateEditorWinnerButtons(m){
   const akaBtn=document.getElementById('editor-pick-aka')
   const aoBtn=document.getElementById('editor-pick-ao')
   akaBtn.textContent = shortName(m.c1)||'AKA'
-  aoBtn.textContent  = shortName(m.c2)||'AO'
+  aoBtn.textContent  = shortName(m.c2)||(isAAURuleset()?'SHIRO':'AO')
   akaBtn.className = 'win-pick-btn ' + (editorWinnerRole==='aka'?'sel-aka':'dim')
   aoBtn.className  = 'win-pick-btn ' + (editorWinnerRole==='ao'?'sel-ao':'dim')
 }
@@ -1454,23 +1652,22 @@ function saveMatchEditor(){
 // ══════════════════════════════════════════════
 // START MATCH
 // ══════════════════════════════════════════════
-// Returns the correct side label for a role, accounting for AAU (AO → WHITE)
+// Returns the correct side label for a role, accounting for AAU (AO → SHIRO)
 function roleLabel(role){
-  if(role === 'ao' && tournament?.rulesetId === 'aau') return 'SHIRO'
+  if(role === 'ao' && isAAURuleset()) return 'SHIRO'
   return role.toUpperCase()  // AKA or AO
 }
 
 // AAU uses red vs white instead of red vs blue
 function applyRulesetColors(rulesetId){
   const root = document.documentElement.style
-  const isAAU = rulesetId === 'aau'
+  const isAAU = isAAURuleset(rulesetId)
   if(isAAU){
     root.setProperty('--ao', '#1a1208')
   } else {
     root.setProperty('--ao', '#1D4ED8')
   }
   // Toggle white-side class on whichever panel is currently AO
-  // (called after renderScorer sets left/right, so query both panels)
   document.querySelectorAll('.fighter.ao').forEach(el=>{
     el.classList.toggle('white-side', isAAU)
   })
@@ -1503,8 +1700,10 @@ function startMatch(matchId, bout){
 
   document.getElementById('scorer-match-info').textContent =
     tournament.name+' · '+tournament.ruleset.name
+  document.getElementById('scorer-nav-title').textContent = tournament.name
+  document.getElementById('scorer-nav-sub').textContent = tournament.ruleset.name+' · '+(tournament.mode==='kata'?'Kata':'Kumite')
   document.getElementById('log-sub').textContent =
-    (m.c1?.name||'AKA')+' (AKA) vs '+(m.c2?.name||'AO')+(tournament?.rulesetId==='aau' ? ' (SHIRO)' : ' (AO)')
+    (m.c1?.name||'AKA')+' (AKA) vs '+(m.c2?.name||'AO')+(isAAURuleset(tournament?.rulesetId) ? ' (SHIRO)' : ' (AO)')
 
   applyRulesetColors(tournament.rulesetId)
   renderScorer()
@@ -1537,12 +1736,31 @@ function renderScorer(){
   document.getElementById('hajime-btn').textContent = timerRunning?'YAME':'HAJIME'
 
   // Re-apply AAU white-side class after DOM rebuild
-  if(tournament?.rulesetId === 'aau'){
+  if(isAAURuleset()){
     document.querySelectorAll('.fighter.ao').forEach(el=>el.classList.add('white-side'))
     document.getElementById('screen-bracket')?.classList.add('aau-mode')
   } else {
     document.getElementById('screen-bracket')?.classList.remove('aau-mode')
   }
+
+  // Update score button labels and visibility for ruleset
+  updateScoringUI()
+}
+
+// Updates score button labels and 3rd-button visibility based on current ruleset.
+// AAU: +1 YUKO → WAZA-ARI (½ pt), +2 WAZA-ARI → IPPON (full pt), +3 IPPON hidden.
+function updateScoringUI(){
+  const aau = isAAURuleset()
+  const lblY = aau ? '+1 WAZA-ARI' : '+1 YUKO'
+  const lblW = aau ? '+2 IPPON'    : '+2 WAZA-ARI'
+  ;['left','right'].forEach(side=>{
+    const ly = document.getElementById(`btn-lbl-${side}-yuko`)
+    const lw = document.getElementById(`btn-lbl-${side}-wazaAri`)
+    const ibtn = document.getElementById(`score-btn-${side}-ippon`)
+    if(ly)   ly.textContent = lblY
+    if(lw)   lw.textContent = lblW
+    if(ibtn) ibtn.style.display = aau ? 'none' : ''
+  })
 }
 
 // Paint one physical side (left/right) with the data of whatever role sits there
@@ -1597,14 +1815,15 @@ function renderKataCenter(){
 
   // Build a vertical column of circles 1..n for a given role/color
   const circleCol = (role) => {
-    const label = role==='aka' ? 'RED' : (tournament?.rulesetId==='aau' ? 'WHITE' : 'BLUE')
-    const circleClass = (tournament?.rulesetId==='aau' && role==='ao') ? 'kata-circle ao aau-white' : `kata-circle ${role}`
+    const aau = isAAURuleset()
+    const label = role==='aka' ? 'RED' : (aau ? 'WHITE' : 'BLUE')
+    const circleClass = (aau && role==='ao') ? 'kata-circle ao aau-white' : `kata-circle ${role}`
     let cells = ''
     for(let i=1;i<=n;i++){
       const selected = match.flagsLocked && match[role].flags === i
       cells += `<button class="${circleClass} ${selected?'sel':''}" onclick="setKataFlags('${role}',${i})">${i}</button>`
     }
-    const labelClass = (tournament?.rulesetId==='aau' && role==='ao') ? `kata-row-label ${role} aau-white-label` : `kata-row-label ${role}`
+    const labelClass = (aau && role==='ao') ? `kata-row-label ${role} aau-white-label` : `kata-row-label ${role}`
     return `<div class="kata-col"><div class="${labelClass}">${label}</div>${cells}</div>`
   }
 
@@ -1666,7 +1885,7 @@ function setKataFlags(role, count){
     type:'kata-flags',
     pts:0,
     label: winner
-      ? `Flags ${match.aka.flags}–${match.ao.flags} (AKA–${tournament?.rulesetId==='aau'?'SHIRO':'AO'}) — ${match[winner].key?.name||winner.toUpperCase()} wins`
+      ? `Flags ${match.aka.flags}–${match.ao.flags} (AKA–${isAAURuleset()?'SHIRO':'AO'}) — ${match[winner].key?.name||winner.toUpperCase()} wins`
       : `Flags ${match.aka.flags}–${match.ao.flags} — tie`,
     timeRemaining: formatTime(timerSecs)
   })
@@ -1769,7 +1988,11 @@ function addScore(side, type){
   const senshuApplied = !match.aka.senshu && !match.ao.senshu
   if(senshuApplied) f.senshu = true
 
-  const label = type==='yuko'?'Yuko':type==='wazaAri'?'Waza-ari':'Ippon'
+  // AAU re-labels: button 1 (yuko) = Waza-ari; button 2 (wazaAri) = Ippon
+  const aau = isAAURuleset()
+  const label = aau
+    ? (type==='yuko' ? 'Waza-ari' : 'Ippon')
+    : (type==='yuko' ? 'Yuko' : type==='wazaAri' ? 'Waza-ari' : 'Ippon')
   match.log.unshift({role, name:f.key?.name||role.toUpperCase(), type, pts, label, timeRemaining:formatTime(timerSecs), senshuApplied})
 
   updateRecentStrip()
@@ -1783,11 +2006,17 @@ function checkWinCondition(type){
 
   const ruleset = tournament.ruleset
   const winCond = tournament.winCondition
+
+  // AAU-style: win when either side reaches the target score (Ippon = 2pts, Sanbon = 6pts)
+  if(ruleset.winConditions.winScore){
+    const maxScore = Math.max(match.aka.score, match.ao.score)
+    if(maxScore >= ruleset.winConditions.winScore){ setTimeout(()=>showWinOverlay(), 200); return }
+  }
+
+  // WKF/NKF-style: ippon-ends + optional point-lead check
   const lead = Math.abs(match.ao.score - match.aka.score)
-  // Ippon ends match for standard (lead) and ippon-only modes, not time-only
   const isIppon = type==='ippon' && ruleset.winConditions.ipponEnds && winCond !== 'time'
-  // Point lead only fires in lead mode
-  const isLead = winCond === 'lead' && lead >= ruleset.winConditions.pointLead
+  const isLead = winCond === 'lead' && lead >= (ruleset.winConditions.pointLead||8)
   if(isIppon || isLead) setTimeout(()=>showWinOverlay(), 200)
 }
 
@@ -1994,7 +2223,7 @@ function showWinOverlay(){
   document.getElementById('pick-aka').textContent = (match.aka.key?.name||'AKA')
   document.getElementById('pick-ao').textContent  = (match.ao.key?.name||'AO')
   // AAU: relabel AO → SHIRO and style score box as black rounded square
-  const isAAU = tournament?.rulesetId === 'aau'
+  const isAAU = isAAURuleset()
   document.getElementById('win-ao-lbl').textContent = isAAU ? 'SHIRO' : 'AO'
   const aoScore = document.getElementById('win-ao-score')
   const aoBlock = document.getElementById('win-ao-block')
@@ -2024,7 +2253,7 @@ function updateWinPicker(){
   aoBtn.className  = 'win-pick-btn ' + (chosenWinnerRole==='ao'  ? 'sel-ao'  : 'dim')
 
   const winnerKey = chosenWinnerRole==='aka' ? match.aka.key : match.ao.key
-  const isAAUWin = tournament?.rulesetId==='aau'
+  const isAAUWin = isAAURuleset()
   const winSide = chosenWinnerRole==='aka' ? 'AKA (red)' : (isAAUWin ? 'SHIRO (white)' : 'AO (blue)')
   document.getElementById('win-name').textContent = winnerKey?.name || 'Winner'
   document.getElementById('win-side').textContent = winSide+' wins'
@@ -2110,15 +2339,16 @@ function findCompetitor(id){
 // EVENT LOG SCREEN
 // ══════════════════════════════════════════════
 function showEventLog(){
+  const aau = isAAURuleset()
   if(match.isKata){
     document.getElementById('log-ao-pts').textContent=match.ao.flags
     document.getElementById('log-aka-pts').textContent=match.aka.flags
-    document.querySelectorAll('.log-stat-lbl')[0].textContent=(tournament?.rulesetId==='aau'?'SHIRO flags':'AO flags')
+    document.querySelectorAll('.log-stat-lbl')[0].textContent=(aau?'SHIRO flags':'AO flags')
     document.querySelectorAll('.log-stat-lbl')[2].textContent='AKA flags'
   } else {
     document.getElementById('log-ao-pts').textContent=match.ao.score
     document.getElementById('log-aka-pts').textContent=match.aka.score
-    document.querySelectorAll('.log-stat-lbl')[0].textContent=(tournament?.rulesetId==='aau'?'SHIRO pts':'AO pts')
+    document.querySelectorAll('.log-stat-lbl')[0].textContent=(aau?'SHIRO pts':'AO pts')
     document.querySelectorAll('.log-stat-lbl')[2].textContent='AKA pts'
   }
   const elapsed = durationSecs - timerSecs
@@ -2130,7 +2360,7 @@ function showEventLog(){
   } else {
     container.innerHTML=match.log.map(e=>`
       <div class="log-entry">
-        <div class="log-badge ${e.role}" style="${e.role==='ao'&&tournament?.rulesetId==='aau'?'background:#111;':''}">${e.role==='ao'&&tournament?.rulesetId==='aau'?'SHIRO':e.role.toUpperCase()}</div>
+        <div class="log-badge ${e.role}" style="${e.role==='ao'&&aau?'background:#111;':''}">${e.role==='ao'&&aau?'SHIRO':e.role.toUpperCase()}</div>
         <div style="flex:1;">
           <div class="log-pts">${e.pts>0?'+'+e.pts+' · ':''}${e.label}${e.senshuApplied?'<span style="font-size:11px;color:var(--gold);margin-left:6px;">● Senshu</span>':''}</div>
           <div class="log-note">${e.name}</div>
