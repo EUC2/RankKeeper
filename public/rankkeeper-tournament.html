@@ -815,6 +815,13 @@ function sbClient(){
   } catch(e){ console.warn('Supabase client init failed:', e); return null }
 }
 
+// Rank ordering so we can pick the most-advanced of two duplicate records.
+const RANK_ORDER_SK = ['Beginner','10th Kyu','9th Kyu','8th Kyu','7th Kyu','6th Kyu',
+  '5th Kyu','4th Kyu','3rd Kyu','2nd Kyu','1st Kyu',
+  'Shodan','Nidan','Sandan','Yondan','Godan','Rokudan','Shichidan','Hachidan','Kudan']
+function rankIndex(r){ const i = RANK_ORDER_SK.indexOf(r); return i < 0 ? 0 : i }
+function higherRank(a, b){ return rankIndex(b.rank) > rankIndex(a.rank) ? b : a }
+
 // Reads RankKeeper students from LOCAL storage and returns them in ScoreKeeper shape.
 function loadDojoRosterLocal(){
   try {
@@ -823,15 +830,27 @@ function loadDojoRosterLocal(){
     const data = JSON.parse(raw)
     const roster = data.roster || []
     const history = data.history || []
-    return roster.map(s => {
+    const mapped = roster.map(s => {
       const rank = currentRankFromHistory(history, s.id)
       const belt = s.beltColor || RANK_TO_BELT_SK[rank] || 'White'
       return { id: s.id, name: s.name, age: ageFromDob(s.dob), belt, rank }
     })
+    return dedupeByName(mapped)   // collapse same-name duplicates (keep highest rank)
   } catch(e){
     console.warn('Could not load local dojo roster:', e)
     return []
   }
+}
+
+// Collapse a roster array to one entry per name, keeping the most-advanced rank.
+function dedupeByName(list){
+  const byName = {}
+  list.forEach(s => {
+    const key = (s.name||'').trim().toLowerCase()
+    if(!key) return
+    byName[key] = byName[key] ? higherRank(byName[key], s) : s
+  })
+  return Object.values(byName).sort((a,b) => a.name.localeCompare(b.name))
 }
 
 // Reads the FULL roster from Supabase (cross-device). Returns [] if no session/offline.
@@ -869,13 +888,25 @@ async function loadDojoRosterRemote(){
   }
 }
 
-// Merge remote + local by student id (remote/local both keyed on the same app id).
-// Remote is the cross-device source of truth; local fills any gap when offline.
+// Merge remote + local into ONE entry per student.
+// Two safeguards against duplicates:
+//   1. Key by id first (remote wins — it's the cross-device source of truth).
+//   2. Then collapse any remaining same-name duplicates (handles a student that
+//      exists under two ids, e.g. re-added or created on two devices before sync).
 function mergeRosters(remote, local){
   const byId = {}
   local.forEach(s => { byId[s.id] = s })
-  remote.forEach(s => { byId[s.id] = s })   // remote wins on conflict
-  return Object.values(byId).sort((a,b) => a.name.localeCompare(b.name))
+  remote.forEach(s => { byId[s.id] = s })   // remote wins on id conflict
+
+  // Collapse by normalized name — keep the entry with the most-advanced rank.
+  const byName = {}
+  Object.values(byId).forEach(s => {
+    const key = (s.name||'').trim().toLowerCase()
+    if(!byName[key]){ byName[key] = s; return }
+    // Duplicate name: keep whichever has the higher rank (more recent progression)
+    byName[key] = higherRank(byName[key], s)
+  })
+  return Object.values(byName).sort((a,b) => a.name.localeCompare(b.name))
 }
 
 // Refreshes the global ROSTER from Supabase (if available) + local, then re-renders
