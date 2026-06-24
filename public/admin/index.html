@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>RankKeeper Admin</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --washi:#F4EFE4; --paper:#FBF8F1; --card:#FFFFFF;
+  --ink:#241F17; --soft:#6B6253; --line:#DDD3BF;
+  --navy:#0B2545; --gold:#C8A032; --gold-d:#A07D1E;
+  --red:#C5443B; --green:#3E8E5A; --brown:#7B4B2A; --blue:#3566A8;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Hiragino Sans","Zen Kaku Gothic New",system-ui,sans-serif;background:var(--washi);color:var(--ink);-webkit-font-smoothing:antialiased;min-height:100vh}
+
+/* ── top bar ── */
+.topbar{background:var(--navy);color:#fff;padding:14px 28px;display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid var(--gold)}
+.brand{display:flex;align-items:center;gap:12px}
+.tiger{width:34px;height:34px;border-radius:50%;background:radial-gradient(circle at 35% 30%,var(--gold),var(--gold-d));display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--navy);font-size:15px}
+.brand h1{font-size:18px;font-weight:800;letter-spacing:.02em}
+.brand span{font-size:11px;color:#A9B6C9;letter-spacing:.18em;text-transform:uppercase;display:block;margin-top:1px}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.admin-pill{background:rgba(200,160,50,.18);border:1px solid var(--gold);color:var(--gold);font-size:11px;font-weight:700;padding:5px 12px;border-radius:999px;letter-spacing:.06em}
+.signout{background:none;border:1px solid rgba(255,255,255,.3);color:#fff;font-family:inherit;font-size:12px;font-weight:700;padding:6px 14px;border-radius:999px;cursor:pointer}
+.signout:hover{border-color:var(--gold);color:var(--gold)}
+
+.wrap{max-width:1180px;margin:0 auto;padding:26px 28px}
+
+/* ── section nav (belt tabs) ── */
+.sectionnav{display:flex;gap:8px;margin-bottom:24px}
+.snav{padding:10px 22px;border:none;cursor:pointer;font-family:inherit;font-weight:700;font-size:14px;color:#fff;border-radius:12px 12px 4px 4px;position:relative;top:2px;box-shadow:0 3px 0 rgba(0,0,0,.12)}
+.snav.accounts{background:var(--brown)}
+.snav.katas{background:var(--green)}
+.snav.ranks{background:var(--blue)}
+.snav.inactive{opacity:.5;top:6px;box-shadow:none}
+
+.hidden{display:none}
+.eyebrow{font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--gold-d);font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.eyebrow::before{content:"";width:22px;height:2px;background:var(--gold)}
+.placeholder{background:var(--card);border:1px dashed var(--line);border-radius:16px;padding:40px 30px;text-align:center;color:var(--soft);font-size:14px}
+.placeholder b{color:var(--ink)}
+
+/* ── login screen ── */
+.loginwrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.logincard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:36px 34px;width:100%;max-width:380px;box-shadow:0 18px 50px rgba(11,37,69,.12)}
+.logincard .lc-brand{display:flex;align-items:center;gap:12px;justify-content:center;margin-bottom:6px}
+.logincard h1{font-size:18px;font-weight:800;color:var(--navy);text-align:center}
+.logincard .sub{font-size:12.5px;color:var(--soft);text-align:center;margin-top:4px;margin-bottom:26px;letter-spacing:.04em;text-transform:uppercase}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--soft);font-weight:700;margin-bottom:6px}
+.field input{width:100%;border:1px solid var(--line);border-radius:9px;padding:10px 12px;font-family:inherit;font-size:14px;color:var(--ink);background:var(--paper)}
+.field input:focus{outline:none;border-color:var(--gold);background:#fff}
+.loginbtn{width:100%;background:var(--gold);color:var(--navy);border:none;border-radius:10px;padding:11px;font-family:inherit;font-weight:800;font-size:14px;cursor:pointer;margin-top:6px}
+.loginbtn:disabled{opacity:.6;cursor:default}
+.loginbtn:hover:not(:disabled){background:var(--gold-d)}
+.loginerr{background:#FBEAE8;border:1px solid var(--red);color:var(--red);font-size:12.5px;border-radius:8px;padding:9px 12px;margin-bottom:14px;display:none}
+
+/* ── boot / loading state ── */
+.bootwrap{min-height:100vh;display:flex;align-items:center;justify-content:center;color:var(--soft);font-size:13px;letter-spacing:.04em}
+</style>
+</head>
+<body>
+
+<!-- ══ BOOT (session check in progress) ══ -->
+<div id="boot" class="bootwrap">Checking session…</div>
+
+<!-- ══ LOGIN SCREEN ══ -->
+<div id="login" class="loginwrap hidden">
+  <div class="logincard">
+    <div class="lc-brand"><div class="tiger">虎</div></div>
+    <h1>RankKeeper Admin</h1>
+    <div class="sub">Support Console</div>
+    <div id="login-error" class="loginerr"></div>
+    <form id="login-form">
+      <div class="field">
+        <label for="login-email">Email</label>
+        <input id="login-email" type="email" autocomplete="username" required/>
+      </div>
+      <div class="field">
+        <label for="login-password">Password</label>
+        <input id="login-password" type="password" autocomplete="current-password" required/>
+      </div>
+      <button type="submit" class="loginbtn" id="login-submit">Sign In</button>
+    </form>
+  </div>
+</div>
+
+<!-- ══ APP SHELL ══ -->
+<div id="shell" class="hidden">
+  <div class="topbar">
+    <div class="brand">
+      <div class="tiger">虎</div>
+      <div><h1>RankKeeper</h1><span>Admin Console</span></div>
+    </div>
+    <div class="topbar-right">
+      <div class="admin-pill" id="admin-pill">SUPPORT@EUC2.ORG</div>
+      <button class="signout" id="signout-btn">Sign out</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="sectionnav">
+      <button class="snav accounts" id="nav-accounts" onclick="showTab('accounts')">Dojo Accounts</button>
+      <button class="snav katas inactive" id="nav-katas" onclick="showTab('katas')">Kata Library</button>
+      <button class="snav ranks inactive" id="nav-ranks" onclick="showTab('ranks')">Rank Systems</button>
+    </div>
+
+    <!-- ACCOUNTS (placeholder — wired in Phase 2) -->
+    <div id="tab-accounts">
+      <div class="eyebrow">Account Health</div>
+      <div class="placeholder">
+        <b>Dojo Accounts</b> — stat cards and the sensei table land here in Phase 2,
+        reading live from <code>profiles</code>.
+      </div>
+    </div>
+
+    <!-- KATAS (placeholder — wired in Phase 4) -->
+    <div id="tab-katas" class="hidden">
+      <div class="eyebrow">Global Kata Library</div>
+      <div class="placeholder">
+        <b>Kata Library</b> — table view, multi-style picker, bulk import, and the
+        102-kata seed land here in Phase 4.
+      </div>
+    </div>
+
+    <!-- RANKS (placeholder — wired in Phase 5) -->
+    <div id="tab-ranks" class="hidden">
+      <div class="eyebrow">Global Rank Systems</div>
+      <div class="placeholder">
+        <b>Rank Systems</b> — JKA / WKF / AAU / USA NKF editable tables land here in
+        Phase 5.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Supabase setup ──
+const SUPABASE_URL = 'https://vxrsvhgdzqauofhsazkf.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ4cnN2aGdkenFhdW9maHNhemtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3ODQxNzgsImV4cCI6MjA5NjM2MDE3OH0._5nxN5r0bCAog8FIJ3w-cOvJezsXDr6Rt9-xG6Sk4PM';
+const ADMIN_EMAIL = 'support@euc2.org';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+function show(id){
+  ['boot','login','shell'].forEach(s=>{
+    document.getElementById(s).classList.toggle('hidden', s!==id);
+  });
+}
+
+function showLoginError(msg){
+  const el = document.getElementById('login-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+function clearLoginError(){
+  document.getElementById('login-error').style.display = 'none';
+}
+
+function showShell(email){
+  document.getElementById('admin-pill').textContent = email.toUpperCase();
+  show('shell');
+  showTab('accounts');
+}
+
+// ── Tab switching (frame only — no data yet) ──
+function showTab(tab){
+  ['accounts','katas','ranks'].forEach(t=>{
+    document.getElementById('tab-'+t).classList.toggle('hidden', t!==tab);
+    document.getElementById('nav-'+t).classList.toggle('inactive', t!==tab);
+  });
+}
+
+// ── Session check on load ──
+async function init(){
+  const { data, error } = await sb.auth.getSession();
+  if (error){ show('login'); return; }
+  const session = data && data.session;
+  if (session && session.user && session.user.email === ADMIN_EMAIL){
+    showShell(session.user.email);
+  } else if (session){
+    // Logged in, but not the admin account — boot them out.
+    await sb.auth.signOut();
+    show('login');
+    showLoginError('This account is not authorized for admin access.');
+  } else {
+    show('login');
+  }
+}
+
+// ── Sign in ──
+document.getElementById('login-form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  clearLoginError();
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  const btn = document.getElementById('login-submit');
+  btn.disabled = true;
+  btn.textContent = 'Signing in…';
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+
+  if (error){
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+    showLoginError(error.message || 'Sign in failed.');
+    return;
+  }
+
+  const user = data && data.user;
+  if (!user || user.email !== ADMIN_EMAIL){
+    await sb.auth.signOut();
+    btn.disabled = false;
+    btn.textContent = 'Sign In';
+    showLoginError('This account is not authorized for admin access.');
+    return;
+  }
+
+  btn.disabled = false;
+  btn.textContent = 'Sign In';
+  showShell(user.email);
+});
+
+// ── Sign out ──
+document.getElementById('signout-btn').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  document.getElementById('login-email').value = '';
+  document.getElementById('login-password').value = '';
+  clearLoginError();
+  show('login');
+});
+
+init();
+</script>
+</body>
+</html>
