@@ -28,3 +28,12 @@ environment variables as the app:
 - `VITE_SUPABASE_ANON_KEY`
 
 After deployment, open `/admin/` and sign in as `support@euc2.org`.
+
+### First-time Dojo Wall setup
+
+Before the first deployment of the full console, run
+`supabase/migrations/20260624_admin_dojo_wall.sql` in the Supabase SQL Editor.
+It creates the kata and rank-system libraries, adds the billing/support fields
+to profiles, and applies the admin and dojo ownership policies. The migration
+is safe to run again. The Kata Library includes a CSV importer for the master
+kata roster (`name,min_level,style`).

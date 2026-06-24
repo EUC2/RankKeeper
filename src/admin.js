@@ -1,99 +1,42 @@
 import { createClient } from "@supabase/supabase-js";
 
-const ADMIN_EMAIL = "support@euc2.org";
-const boot = document.getElementById("boot");
-const login = document.getElementById("login");
-const shell = document.getElementById("shell");
-const errorBox = document.getElementById("login-error");
-const submitButton = document.getElementById("login-submit");
+const ADMIN_EMAIL = "support@euc2.org", $ = (s) => document.querySelector(s);
+const esc = (v = "") => String(v).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const date = v => v ? new Date(v).toLocaleDateString() : "—";
+const age = v => v ? Math.floor((Date.now()-new Date(v))/31557600000) : "—";
+const state = { tab:"accounts", profiles:[], studentCounts:{}, katas:[], systems:[], selected:null };
+const url = import.meta.env.VITE_SUPABASE_URL, key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+let db;
 
-function show(view) {
-  boot.classList.toggle("hidden", view !== "boot");
-  login.classList.toggle("hidden", view !== "login");
-  shell.classList.toggle("hidden", view !== "shell");
-}
+function show(which){ ["boot","login","app"].forEach(x=>$("#"+x).classList.toggle("hidden",x!==which)); }
+function alert(msg){ const t=$("#toast");t.textContent=msg;t.classList.remove("hidden");setTimeout(()=>t.classList.add("hidden"),2800); }
+function loginError(msg){ const e=$("#login-error");e.textContent=msg;e.classList.remove("hidden"); }
+function isAdmin(u){ return u?.email?.toLowerCase()===ADMIN_EMAIL; }
+async function query(fn, fallback=[]){ const {data,error}=await fn(); if(error){ console.error(error); alert(error.message); return fallback; } return data??fallback; }
 
-function showError(message) {
-  errorBox.textContent = message;
-  errorBox.style.display = "block";
-}
+if(!url||!key){show("login");loginError("Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY in Vercel.");$("#login-submit").disabled=true;}
+else { db=createClient(url,key,{auth:{persistSession:true,autoRefreshToken:true}}); db.auth.getSession().then(async({data,error})=>{if(error)throw error;if(data.session&&isAdmin(data.session.user))boot(data.session.user);else {if(data.session)await db.auth.signOut();show("login");}}).catch(e=>{show("login");loginError(`Unable to check session: ${e.message}`)}); }
 
-function clearError() {
-  errorBox.textContent = "";
-  errorBox.style.display = "none";
-}
+$("#login-form").addEventListener("submit",async e=>{e.preventDefault();try{const {data,error}=await db.auth.signInWithPassword({email:$("#email").value.trim(),password:$("#password").value});if(error)throw error;if(!isAdmin(data.user)){await db.auth.signOut();throw Error("This account is not authorized for Dojo Wall.");}boot(data.user);}catch(e){loginError(e.message)}});
+$("#signout").onclick=async()=>{await db.auth.signOut();show("login")};
+document.querySelectorAll("[data-tab]").forEach(b=>b.onclick=()=>{state.tab=b.dataset.tab;document.querySelectorAll("[data-tab]").forEach(x=>x.classList.toggle("inactive",x!==b));["accounts","katas","ranks"].forEach(x=>$("#"+x+"-view").classList.toggle("hidden",x!==state.tab));render();});
 
-function isAdmin(user) {
-  return user?.email?.toLowerCase() === ADMIN_EMAIL;
-}
+async function boot(user){$("#admin-email").textContent=user.email;show("app");await load();render();}
+async function load(){ if(state.tab==="accounts"||state.selected){ const [profiles,students]=await Promise.all([query(()=>db.from("profiles").select("*").order("created_at",{ascending:false})),query(()=>db.from("students").select("dojo_id"))]); state.profiles=profiles; state.studentCounts=students.reduce((counts,s)=>({...counts,[s.dojo_id]:(counts[s.dojo_id]||0)+1}),{}); } if(state.tab==="katas"){state.katas=await query(()=>db.from("katas").select("*").order("min_level").order("sort_order").order("name"));} if(state.tab==="ranks"){state.systems=await query(()=>db.from("rank_systems").select("*,rank_levels(*)").eq("active",true).order("name"));} }
+function render(){if(state.tab==="accounts")renderAccounts();if(state.tab==="katas")renderKatas();if(state.tab==="ranks")renderRanks();}
 
-function showShell(email) {
-  document.getElementById("admin-pill").textContent = email.toUpperCase();
-  show("shell");
-  selectTab("accounts");
-}
+function profileName(p){return p.legal_name||p.full_name||p.name||p.email?.split("@")[0]||"Unnamed sensei"}
+function status(p){return p.access_status||p.plan||"trial"}
+function renderAccounts(){const list=state.profiles, stat=(f)=>list.filter(f).length; const qs=$("#accounts-view");qs.innerHTML=`<div class="stats"><div class="stat"><span class="label">New accounts</span><b>${stat(p=>Date.now()-new Date(p.created_at||0)<691200000)}</b><small class="muted">under 8 days</small></div><div class="stat"><span class="label">Active</span><b>${stat(p=>Date.now()-new Date(p.updated_at||p.created_at||0)<2592000000)}</b><small class="muted">active in 30 days</small></div><div class="stat"><span class="label">Inactive</span><b>${stat(p=>Date.now()-new Date(p.updated_at||p.created_at||0)>2592000000)}</b><small class="muted">over 30 days</small></div><div class="stat"><span class="label">Total dojos</span><b>${list.length}</b><small class="muted">all accounts</small></div></div><div class="toolbar"><div><h2>Dojo Accounts</h2><p class="muted">Remote support and account health.</p></div><div class="row"><select id="account-filter"><option value="all">All statuses</option><option>active</option><option>trial</option><option>inactive</option><option>lifetime</option></select><input id="account-search" placeholder="Search sensei or email"/></div></div><div class="table-wrap"><table><thead><tr><th>Sensei</th><th>Email</th><th>Students</th><th>Status</th><th>Last active</th><th>Joined</th><th></th></tr></thead><tbody id="profiles-body"></tbody></table></div>`;const draw=()=>{const f=$("#account-filter").value,s=$("#account-search").value.toLowerCase();$("#profiles-body").innerHTML=list.filter(p=>(f==="all"||status(p)===f)&&(`${profileName(p)} ${p.email||""}`).toLowerCase().includes(s)).map(p=>`<tr><td><b>${esc(profileName(p))}</b></td><td>${esc(p.email||"—")}</td><td>${state.studentCounts[p.id]||0}</td><td><span class="badge ${esc(status(p))}">${esc(status(p))}</span></td><td>${date(p.last_sign_in_at||p.updated_at)}</td><td>${date(p.created_at)}</td><td><button data-detail="${p.id}">View</button></td></tr>`).join("")||`<tr><td colspan="7" class="empty">No dojo accounts match this filter.</td></tr>`;document.querySelectorAll("[data-detail]").forEach(b=>b.onclick=()=>openDetail(b.dataset.detail));};$("#account-filter").onchange=draw;$("#account-search").oninput=draw;draw();}
 
-function selectTab(tab) {
-  ["accounts", "katas", "ranks"].forEach((name) => {
-    document.getElementById(`tab-${name}`).classList.toggle("hidden", name !== tab);
-    document.querySelector(`[data-tab="${name}"]`).classList.toggle("inactive", name !== tab);
-  });
-}
+async function openDetail(id){state.selected=state.profiles.find(p=>p.id===id);const p=state.selected;const [students,tests,katas]=await Promise.all([query(()=>db.from("students").select("*").eq("dojo_id",id).order("name")),query(()=>db.from("rank_tests").select("*").eq("dojo_id",id).order("test_date",{ascending:false})),query(()=>db.from("katas").select("*").eq("dojo_id",id).eq("scope","custom"))]);const m=$("#modal-root");m.innerHTML=`<div class="modal"><section class="card"><div class="detail"><div class="detailhead"><div class="avatar">${esc(profileName(p)[0].toUpperCase())}</div><div><h2>${esc(profileName(p))}</h2><p class="muted">${esc(p.email||"")}</p></div></div><div class="meta"><div class="card"><span class="label">Status</span><b>${esc(status(p))}</b></div><div class="card"><span class="label">Students</span><b>${students.length}</b></div><div class="card"><span class="label">Last active</span><b>${date(p.last_sign_in_at||p.updated_at)}</b></div><div class="card"><span class="label">Joined</span><b>${date(p.created_at)}</b></div></div><div class="split"><section class="card"><h3>Subscription & billing</h3><div class="field"><label>Plan</label><select id="detail-plan">${["trial","active","lifetime","inactive"].map(x=>`<option ${status(p)===x?"selected":""}>${x}</option>`).join("")}</select></div><div class="field"><label>Purchased</label><input id="detail-purchased" type="date" value="${p.purchased_at?.slice(0,10)||""}"/></div><div class="field"><label>Next payment</label><input id="detail-payment" type="date" value="${p.next_payment_at?.slice(0,10)||""}"/></div><p class="muted">Stripe remains the billing source of truth. These fields support comp and correction overrides.</p></section><section class="card"><h3>Data inspector</h3><p class="muted" style="margin:10px 0">${students.length} roster record(s) · ${katas.length} custom kata(s) · sync status available through the roster and test records.</p><button id="raw-toggle" class="secondary">Show raw data</button><pre id="raw" class="hidden" style="white-space:pre-wrap;max-height:180px;overflow:auto">${esc(JSON.stringify({profile:p,students,tests,katas},null,2))}</pre></section></div><section class="card"><h3>Roster</h3><div class="table-wrap" style="margin-top:10px"><table><thead><tr><th>Student</th><th>Rank / belt</th><th>Age</th><th>Last test</th></tr></thead><tbody>${students.map(s=>`<tr><td>${esc(s.name||"—")}</td><td>${esc(s.rank||s.belt||"—")}</td><td>${age(s.dob)}</td><td>${date(tests.find(t=>t.student_id===s.id)?.test_date)}</td></tr>`).join("")||`<tr><td colspan="4" class="empty">No roster records.</td></tr>`}</tbody></table></div></section>${katas.length?`<section class="card"><h3>Custom katas</h3><p class="muted" style="margin-top:8px">${katas.map(k=>esc(k.name)).join(", ")}</p></section>`:""}</div><div class="actions"><button id="detail-close" class="secondary">Close</button><button id="detail-save" class="gold">Save account</button></div></section></div>`;$("#raw-toggle").onclick=()=>$("#raw").classList.toggle("hidden");$("#detail-close").onclick=()=>m.innerHTML="";$("#detail-save").onclick=async()=>{const values={plan:$("#detail-plan").value,access_status:$("#detail-plan").value,purchased_at:$("#detail-purchased").value||null,next_payment_at:$("#detail-payment").value||null};const {error}=await db.from("profiles").update(values).eq("id",id);if(error)alert(error.message);else{alert("Account saved");m.innerHTML="";await load();render();}};}
 
-document.querySelectorAll("[data-tab]").forEach((button) => {
-  button.addEventListener("click", () => selectTab(button.dataset.tab));
-});
+function renderKatas(){const v=$("#katas-view");v.innerHTML=`<div class="toolbar"><div><h2>Kata Library</h2><p class="muted">Global library · archive instead of delete.</p></div><div class="row"><input id="kata-search" placeholder="Search kata"/><select id="kata-level"><option value="0">All levels</option><option value="1">Beginner</option><option value="2">Novice</option><option value="3">Intermediate</option><option value="4">Advanced</option></select><button id="bulk" class="secondary">Bulk import CSV</button><button id="add-kata" class="gold">+ Add kata</button></div></div><div class="table-wrap"><table><thead><tr><th>#</th><th>Kata name</th><th>Min level</th><th>Styles</th><th>Order</th><th>Active</th><th></th></tr></thead><tbody id="kata-body"></tbody></table></div>`;const draw=()=>{const s=$("#kata-search").value.toLowerCase(),l=+$("#kata-level").value;$("#kata-body").innerHTML=state.katas.filter(k=>k.name.toLowerCase().includes(s)&&(!l||k.min_level===l)).map(k=>`<tr><td>${k.min_level}</td><td><input data-kname="${k.id}" value="${esc(k.name)}"/></td><td><select data-klevel="${k.id}">${[1,2,3,4].map(x=>`<option value="${x}" ${x===k.min_level?"selected":""}>${x}</option>`).join("")}</select></td><td><input data-kstyle="${k.id}" value="${esc((k.style||[]).join(", "))}" placeholder="Shotokan, Goju Ryu"/></td><td><input data-korder="${k.id}" type="number" value="${k.sort_order||0}"/></td><td><input data-kactive="${k.id}" type="checkbox" ${k.active?"checked":""}/></td><td><button data-ksave="${k.id}">Save</button> <button class="danger" data-karchive="${k.id}">Archive</button></td></tr>`).join("")||`<tr><td colspan="7" class="empty">No katas found.</td></tr>`;document.querySelectorAll("[data-ksave]").forEach(b=>b.onclick=()=>saveKata(b.dataset.ksave));document.querySelectorAll("[data-karchive]").forEach(b=>b.onclick=()=>archiveKata(b.dataset.karchive));};$("#kata-search").oninput=draw;$("#kata-level").onchange=draw;$("#add-kata").onclick=()=>kataForm();$("#bulk").onclick=()=>bulkForm();draw();}
+async function saveKata(id){const data={name:document.querySelector(`[data-kname="${id}"]`).value.trim(),min_level:+document.querySelector(`[data-klevel="${id}"]`).value,style:document.querySelector(`[data-kstyle="${id}"]`).value.split(",").map(x=>x.trim()).filter(Boolean),sort_order:+document.querySelector(`[data-korder="${id}"]`).value,active:document.querySelector(`[data-kactive="${id}"]`).checked};const {error}=await db.from("katas").update(data).eq("id",id);if(error)alert(error.message);else{alert("Kata saved");await load();render();}}
+async function archiveKata(id){if(!confirm("Archive this kata? It will remain recoverable."))return;const {error}=await db.from("katas").update({active:false}).eq("id",id);if(error)alert(error.message);else{await load();render();}}
+function kataForm(){formModal("Add global kata",`<div class="field"><label>Name</label><input id="f-name" required/></div><div class="field"><label>Minimum level</label><select id="f-level"><option value="1">1 · Beginner</option><option value="2">2 · Novice</option><option value="3">3 · Intermediate</option><option value="4">4 · Advanced</option></select></div><div class="field"><label>Styles (comma separated)</label><input id="f-styles"/></div><div class="field"><label>Order</label><input id="f-order" type="number" value="0"/></div>`,async()=>{const {error}=await db.from("katas").insert({name:$("#f-name").value.trim(),min_level:+$("#f-level").value,style:$("#f-styles").value.split(",").map(x=>x.trim()).filter(Boolean),sort_order:+$("#f-order").value,scope:"global"});if(error)throw error;await load();render();});}
+function bulkForm(){formModal("Bulk import kata CSV",`<p class="muted">Paste CSV rows: <code>name,min_level,style</code>. The first header row is optional.</p><div class="field"><textarea id="f-csv" placeholder="Heian Shodan,1,Shotokan"></textarea></div>`,async()=>{const rows=$("#f-csv").value.trim().split(/\r?\n/).filter(Boolean).filter((r,i)=>!(i===0&&/name/i.test(r))).map(r=>{const [name,min_level,styles=""]=r.split(",");return{name:name?.trim(),min_level:+min_level,style:styles.split(";").map(x=>x.trim()).filter(Boolean),scope:"global"}}).filter(r=>r.name&&r.min_level>=1&&r.min_level<=4);if(!rows.length)throw Error("No valid CSV rows found.");const {error}=await db.from("katas").insert(rows);if(error)throw error;await load();render();});}
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-let supabase;
-
-if (!url || !anonKey) {
-  show("login");
-  showError("Admin configuration is incomplete. Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in Vercel, then redeploy.");
-  submitButton.disabled = true;
-} else {
-  supabase = createClient(url, anonKey, { auth: { persistSession: true, autoRefreshToken: true } });
-  supabase.auth.getSession()
-    .then(({ data, error }) => {
-      if (error) throw error;
-      if (data.session && isAdmin(data.session.user)) showShell(data.session.user.email);
-      else if (data.session) return supabase.auth.signOut().then(() => show("login"));
-      else show("login");
-    })
-    .catch((error) => {
-      show("login");
-      showError(`Unable to check the admin session: ${error.message || "unknown error"}`);
-    });
-}
-
-document.getElementById("login-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if (!supabase) return;
-  clearError();
-  submitButton.disabled = true;
-  submitButton.textContent = "Signing in…";
-  try {
-    const email = document.getElementById("login-email").value.trim();
-    const password = document.getElementById("login-password").value;
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    if (!isAdmin(data.user)) {
-      await supabase.auth.signOut();
-      throw new Error("This account is not authorized for admin access.");
-    }
-    showShell(data.user.email);
-  } catch (error) {
-    showError(error.message || "Sign in failed.");
-  } finally {
-    submitButton.disabled = false;
-    submitButton.textContent = "Sign In";
-  }
-});
-
-document.getElementById("signout-btn").addEventListener("click", async () => {
-  if (supabase) await supabase.auth.signOut();
-  document.getElementById("login-form").reset();
-  clearError();
-  show("login");
-});
+function renderRanks(){const v=$("#ranks-view"),selected=state.systems[0];v.innerHTML=`<div class="toolbar"><div><h2>Rank Systems</h2><p class="muted">Belt colors drive stripe eligibility: Orange through Brown earn stripes.</p></div><button id="new-system" class="gold">+ New system</button></div><div class="tabs" id="system-tabs">${state.systems.map((s,i)=>`<button class="secondary ${i?"":"gold"}" data-system="${s.id}">${esc(s.name)}</button>`).join("")}</div><div id="levels"></div>`;$("#new-system").onclick=()=>formModal("New global rank system",`<div class="field"><label>Name</label><input id="f-system" required/></div>`,async()=>{const {error}=await db.from("rank_systems").insert({name:$("#f-system").value.trim(),scope:"global"});if(error)throw error;await load();render();});document.querySelectorAll("[data-system]").forEach(b=>b.onclick=()=>renderLevels(state.systems.find(x=>x.id===b.dataset.system)));renderLevels(selected);}
+function renderLevels(s){const v=$("#levels");if(!s){v.innerHTML='<div class="empty">No rank systems yet. Add one to begin.</div>';return;}const levels=(s.rank_levels||[]).filter(x=>x.active).sort((a,b)=>a.order_index-b.order_index);v.innerHTML=`<div class="toolbar"><h3>${esc(s.name)}</h3><button id="add-level" class="gold">+ Add rank</button></div><div class="table-wrap"><table><thead><tr><th>Rank label</th><th>Belt</th><th>Division</th><th>Stripes</th><th>Order</th><th></th></tr></thead><tbody>${levels.map(l=>`<tr><td><input data-rlabel="${l.id}" value="${esc(l.rank_label)}"/></td><td><input data-rcolor="${l.id}" value="${esc(l.belt_color)}"/><input data-rhex="${l.id}" type="color" value="${esc(l.belt_hex||"#ffffff")}"/></td><td><input data-rdivision="${l.id}" value="${esc(l.division)}"/></td><td>${/orange|yellow|green|blue|purple|brown/i.test(l.belt_color)?"Earns stripes":"—"}</td><td><input data-rorder="${l.id}" type="number" value="${l.order_index}"/></td><td><button data-rsave="${l.id}">Save</button></td></tr>`).join("")||`<tr><td colspan="6" class="empty">No ranks in this system.</td></tr>`}</tbody></table></div>`;$("#add-level").onclick=()=>formModal("Add rank",`<div class="field"><label>Rank label</label><input id="f-rank"/></div><div class="field"><label>Belt color</label><input id="f-belt" value="White"/></div><div class="field"><label>Division</label><input id="f-division" value="Beginner"/></div>`,async()=>{const {error}=await db.from("rank_levels").insert({system_id:s.id,rank_label:$("#f-rank").value,belt_color:$("#f-belt").value,division:$("#f-division").value});if(error)throw error;await load();render();});document.querySelectorAll("[data-rsave]").forEach(b=>b.onclick=async()=>{const id=b.dataset.rsave,{error}=await db.from("rank_levels").update({rank_label:document.querySelector(`[data-rlabel="${id}"]`).value,belt_color:document.querySelector(`[data-rcolor="${id}"]`).value,belt_hex:document.querySelector(`[data-rhex="${id}"]`).value,division:document.querySelector(`[data-rdivision="${id}"]`).value,order_index:+document.querySelector(`[data-rorder="${id}"]`).value}).eq("id",id);if(error)alert(error.message);else{alert("Rank saved");await load();render();}});}
+function formModal(title,body,save){const m=$("#modal-root");m.innerHTML=`<div class="modal"><form class="card" id="form-modal"><h2>${title}</h2>${body}<div class="actions"><button type="button" id="cancel" class="secondary">Cancel</button><button class="gold">Save</button></div></form></div>`;$("#cancel").onclick=()=>m.innerHTML="";$("#form-modal").onsubmit=async e=>{e.preventDefault();try{await save();m.innerHTML="";alert("Saved");}catch(err){alert(err.message||"Could not save")}};}
