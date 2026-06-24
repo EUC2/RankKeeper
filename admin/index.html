@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RankKeeper Admin</title>
+    <style>
+      :root { --washi:#F4EFE4; --paper:#FBF8F1; --card:#fff; --ink:#241F17; --soft:#6B6253; --line:#DDD3BF; --navy:#0B2545; --gold:#C8A032; --gold-d:#A07D1E; --red:#C5443B; --green:#3E8E5A; --brown:#7B4B2A; --blue:#3566A8; }
+      * { box-sizing:border-box; margin:0; padding:0; }
+      body { min-height:100vh; background:var(--washi); color:var(--ink); font-family:"Hiragino Sans",system-ui,sans-serif; }
+      .hidden { display:none !important; }
+      .bootwrap,.loginwrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; color:var(--soft); font-size:14px; }
+      .logincard { width:100%; max-width:380px; padding:36px 34px; background:var(--card); border:1px solid var(--line); border-radius:18px; box-shadow:0 18px 50px rgba(11,37,69,.12); }
+      .tiger { width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:50%; color:var(--navy); background:radial-gradient(circle at 35% 30%,var(--gold),var(--gold-d)); font-weight:800; }
+      .lc-brand { display:flex; justify-content:center; margin-bottom:8px; }
+      h1 { color:var(--navy); text-align:center; font-size:20px; }
+      .sub { margin:5px 0 26px; color:var(--soft); text-align:center; font-size:12px; letter-spacing:.12em; text-transform:uppercase; }
+      .field { margin-bottom:14px; }
+      label { display:block; margin-bottom:6px; color:var(--soft); font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+      input { width:100%; padding:10px 12px; color:var(--ink); background:var(--paper); border:1px solid var(--line); border-radius:9px; font:inherit; }
+      input:focus { outline:none; border-color:var(--gold); background:#fff; }
+      button { font:inherit; cursor:pointer; }
+      .loginbtn { width:100%; margin-top:6px; padding:11px; color:var(--navy); background:var(--gold); border:0; border-radius:10px; font-weight:800; }
+      .loginbtn:disabled { opacity:.6; cursor:default; }
+      .loginerr { display:none; margin-bottom:14px; padding:9px 12px; color:var(--red); background:#FBEAE8; border:1px solid var(--red); border-radius:8px; font-size:13px; }
+      .topbar { display:flex; align-items:center; justify-content:space-between; padding:14px 28px; color:#fff; background:var(--navy); border-bottom:3px solid var(--gold); }
+      .brand { display:flex; align-items:center; gap:12px; } .brand h1 { color:#fff; text-align:left; font-size:18px; } .brand span { color:#A9B6C9; font-size:11px; letter-spacing:.18em; text-transform:uppercase; }
+      .topbar-right { display:flex; align-items:center; gap:12px; } .admin-pill { padding:5px 12px; color:var(--gold); border:1px solid var(--gold); border-radius:999px; font-size:11px; font-weight:700; }
+      .signout { padding:6px 14px; color:#fff; background:none; border:1px solid rgba(255,255,255,.3); border-radius:999px; font-size:12px; font-weight:700; }
+      .wrap { max-width:1180px; margin:0 auto; padding:26px 28px; } .sectionnav { display:flex; gap:8px; margin-bottom:24px; }
+      .snav { padding:10px 22px; color:#fff; border:0; border-radius:12px 12px 4px 4px; font-weight:700; } .accounts{background:var(--brown)} .katas{background:var(--green)} .ranks{background:var(--blue)} .inactive{opacity:.5;}
+      .eyebrow { margin-bottom:12px; color:var(--gold-d); font-size:12px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; } .placeholder { padding:40px 30px; color:var(--soft); text-align:center; background:var(--card); border:1px dashed var(--line); border-radius:16px; }
+    </style>
+  </head>
+  <body>
+    <main id="boot" class="bootwrap">Checking secure session…</main>
+    <main id="login" class="loginwrap hidden"><section class="logincard"><div class="lc-brand"><div class="tiger">虎</div></div><h1>RankKeeper Admin</h1><p class="sub">Support Console</p><div id="login-error" class="loginerr" role="alert"></div><form id="login-form"><div class="field"><label for="login-email">Email</label><input id="login-email" type="email" autocomplete="username" required /></div><div class="field"><label for="login-password">Password</label><input id="login-password" type="password" autocomplete="current-password" required /></div><button id="login-submit" class="loginbtn" type="submit">Sign In</button></form></section></main>
+    <main id="shell" class="hidden"><header class="topbar"><div class="brand"><div class="tiger">虎</div><div><h1>RankKeeper</h1><span>Admin Console</span></div></div><div class="topbar-right"><div id="admin-pill" class="admin-pill">SUPPORT@EUC2.ORG</div><button id="signout-btn" class="signout" type="button">Sign out</button></div></header><div class="wrap"><nav class="sectionnav" aria-label="Admin sections"><button class="snav accounts" data-tab="accounts" type="button">Dojo Accounts</button><button class="snav katas inactive" data-tab="katas" type="button">Kata Library</button><button class="snav ranks inactive" data-tab="ranks" type="button">Rank Systems</button></nav><section id="tab-accounts"><p class="eyebrow">Account Health</p><div class="placeholder"><b>Dojo Accounts</b> — stat cards and the sensei table land here in Phase 2, reading live from <code>profiles</code>.</div></section><section id="tab-katas" class="hidden"><p class="eyebrow">Global Kata Library</p><div class="placeholder"><b>Kata Library</b> — table view, multi-style picker, bulk import, and the 102-kata seed land here in Phase 4.</div></section><section id="tab-ranks" class="hidden"><p class="eyebrow">Global Rank Systems</p><div class="placeholder"><b>Rank Systems</b> — JKA / WKF / AAU / USA NKF editable tables land here in Phase 5.</div></section></div></main>
+    <script type="module" src="/src/admin.js"></script>
+  </body>
+</html>

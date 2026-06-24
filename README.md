@@ -16,3 +16,15 @@ You do NOT need Node.js or Terminal for this. Vercel does the building for you.
 ## Notes
 - Data is saved in the browser on each device (localStorage). Great for testing and single-sensei use.
 - For multi-device sync + selling, swap localStorage for a cloud database (e.g. Supabase) later.
+
+## Admin console
+
+The `/admin` page is a separate Vite entry point. It is built with the app rather
+than loading Supabase from a browser CDN, so an ad blocker or CDN outage cannot
+leave it stuck on the session-checking screen. Its login uses the same Vercel
+environment variables as the app:
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+After deployment, open `/admin/` and sign in as `support@euc2.org`.
