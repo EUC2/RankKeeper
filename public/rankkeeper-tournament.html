@@ -183,6 +183,8 @@ select{appearance:none;}
 .timer-bar{background:var(--beige-card);padding:12px 14px;display:flex;align-items:center;gap:8px;border-top:0.5px solid var(--beige-border);flex-shrink:0;}
 .timer-display{font-size:52px;font-weight:500;color:var(--beige-text);letter-spacing:.05em;flex:1;text-align:center;cursor:pointer;}
 .time-adj{background:var(--beige-surface);border:0.5px solid var(--beige-border);border-radius:10px;width:48px;padding:14px 0;font-size:24px;font-weight:500;color:var(--navy);flex-shrink:0;}
+.time-adj.small{width:38px;font-size:15px;font-weight:700;}
+.time-adj.set{width:46px;font-size:13px;font-weight:800;letter-spacing:.04em;}
 .time-adj:active{background:var(--beige-border);}
 .undo-btn{background:var(--beige-surface);border:0.5px solid var(--beige-border);border-radius:10px;padding:12px 14px;font-size:16px;color:var(--beige-sub);}
 .hajime-btn{background:var(--navy);color:var(--gold);font-weight:700;border:none;border-radius:10px;padding:14px 22px;font-size:20px;letter-spacing:.06em;}
@@ -191,6 +193,7 @@ select{appearance:none;}
 .buzzer-link{color:var(--navy);text-decoration:underline;cursor:pointer;font-size:13px;}
 .end-btn{background:none;border:0.5px solid #A89F8C;border-radius:20px;padding:5px 14px;font-size:13px;color:var(--beige-sub);}
 .abandon-btn{background:none;border:none;color:var(--beige-muted);font-size:14px;padding:10px 0 2px;width:100%;text-align:center;text-decoration:underline;text-underline-offset:3px;}
+.back-match-btn{background:var(--beige-card);border:1px solid var(--navy);color:var(--navy);font-weight:700;font-size:16px;border-radius:10px;padding:13px;width:100%;margin:10px 0 2px;}
 
 /* EVENT LOG */
 .log-summary{background:var(--beige-card);padding:10px 16px;display:flex;justify-content:space-around;border-bottom:0.5px solid var(--beige-border);}
@@ -222,6 +225,12 @@ select{appearance:none;}
 .win-pick-btn.sel-aka{border-color:var(--aka);background:#FEE2E2;color:var(--aka);}
 .win-pick-btn.sel-ao{border-color:var(--ao);background:#DBEAFE;color:var(--ao);}
 .win-pick-btn.dim{opacity:0.5;}
+.late-score-controls{display:none;margin:0 0 18px;text-align:left;}
+.late-score-title{font-size:11px;color:var(--beige-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;text-align:center;}
+.late-score-row{display:grid;grid-template-columns:62px 1fr;gap:7px;align-items:center;margin-bottom:7px;}
+.late-score-side{font-size:12px;font-weight:800;color:var(--beige-sub);text-align:right;}
+.late-score-buttons{display:flex;gap:5px;}
+.late-score-buttons button{flex:1;border:none;border-radius:8px;background:var(--navy);color:var(--gold);font-size:11px;font-weight:800;padding:9px 5px;}
 /* ── DESKTOP / WIDE SCREEN ──────────────────── */
 @media (min-width: 700px) {
   .kata-center { padding: 12px 8px; gap: 12px; width: 100%; }
@@ -521,7 +530,10 @@ select{appearance:none;}
     <div class="timer-bar">
       <button class="undo-btn" onclick="undoLast()">↩ Undo</button>
       <button class="time-adj" onclick="adjustTime(-15)" title="−15 sec">−</button>
+      <button class="time-adj small" onclick="adjustTime(-1)" title="−1 sec">−1</button>
       <div class="timer-display" id="timer-display" onclick="editTime()" title="Tap to set time">0:00</div>
+      <button class="time-adj set" onclick="editTime()" title="Set exact time">SET</button>
+      <button class="time-adj small" onclick="adjustTime(1)" title="+1 sec">+1</button>
       <button class="time-adj" onclick="adjustTime(15)" title="+15 sec">+</button>
       <button class="hajime-btn" id="hajime-btn" onclick="toggleTimer()">HAJIME</button>
     </div>
@@ -577,8 +589,10 @@ select{appearance:none;}
       <button class="win-pick-btn" id="pick-aka" onclick="pickWinner('aka')"></button>
       <button class="win-pick-btn" id="pick-ao" onclick="pickWinner('ao')"></button>
     </div>
+    <div class="late-score-controls" id="late-score-controls"></div>
 
     <button class="btn-navy" onclick="confirmMatchEnd()">Confirm & continue →</button>
+    <button class="back-match-btn" onclick="returnToScoringFromConfirm()">← Back to match</button>
     <button class="abandon-btn" onclick="abandonMatch()">← Exit without recording</button>
   </div>
 </div>
@@ -1727,6 +1741,7 @@ function startMatch(matchId, bout){
   timerRunning = false
   buzzFired = false
   matchEnded = false
+  editingAfterConfirm = false
   clearInterval(timerInterval)
 
   document.getElementById('scorer-match-info').textContent =
@@ -2005,7 +2020,10 @@ function updateRecentStrip(){
 // SCORING
 // ══════════════════════════════════════════════
 function addScore(side, type){
-  const role = roleOf(side)
+  addScoreForRole(roleOf(side), type)
+}
+
+function addScoreForRole(role, type, skipAutoEnd=false){
   const f = match[role]
   const pts = type==='yuko'?1:type==='wazaAri'?2:3
 
@@ -2028,10 +2046,23 @@ function addScore(side, type){
 
   updateRecentStrip()
   renderScorer()
+  if(skipAutoEnd) return
   checkWinCondition(type)
 }
 
+function addLateScore(role, type){
+  if(match.isKata) return
+  addScoreForRole(role, type, true)
+  populateWinOverlay()
+  document.getElementById('win-overlay').style.display='flex'
+}
+
 function checkWinCondition(type){
+  // If the user backed out of the confirmation screen to correct a late score
+  // or penalty, do not immediately re-open the confirmation overlay. They can
+  // finish corrections and tap End match when ready.
+  if(editingAfterConfirm) return
+
   // Sparring and quick scoreboard: never auto-end on points — end manually or on time
   if(tournament.isSpar || tournament.isQuick) return
 
@@ -2133,7 +2164,7 @@ function adjustTime(delta){
 // Tap the clock to type a new time (mm:ss or seconds)
 function editTime(){
   const cur = formatTime(timerSecs)
-  const input = prompt('Set match time (mm:ss or seconds):', cur)
+  const input = prompt('Set clock time. Examples: 23 = 0:23, 1:05 = 1:05', cur)
   if(input===null) return
   let secs = 0
   if(input.includes(':')){
@@ -2208,13 +2239,27 @@ function formatTime(s){
 // END MATCH
 // ══════════════════════════════════════════════
 let matchEnded = false   // guard so a match can only end once
+let editingAfterConfirm = false
 
 function endMatch(){ showWinOverlay() }
+
+function returnToScoringFromConfirm(){
+  document.getElementById('win-overlay').style.display='none'
+  matchEnded = false
+  editingAfterConfirm = true
+  timerRunning = false
+  clearInterval(timerInterval)
+  document.getElementById('hajime-btn').textContent = 'HAJIME'
+  renderScorer()
+  updateRecentStrip()
+  showScreen('scorer')
+}
 
 function abandonMatch(){
   // Close the overlay and reset state — nothing is recorded
   document.getElementById('win-overlay').style.display='none'
   matchEnded = false
+  editingAfterConfirm = false
   timerRunning = false
   clearInterval(timerInterval)
   document.getElementById('hajime-btn').textContent = 'HAJIME'
@@ -2233,9 +2278,15 @@ function abandonMatch(){
 function showWinOverlay(){
   if(matchEnded) return   // already showing / already ended
   matchEnded = true
+  editingAfterConfirm = false
   timerRunning=false; clearInterval(timerInterval)
   document.getElementById('hajime-btn').textContent='HAJIME'
 
+  populateWinOverlay()
+  document.getElementById('win-overlay').style.display='flex'
+}
+
+function populateWinOverlay(){
   if(match.isKata){
     // Kata: winner by flag majority
     const aoWins = match.ao.flags > match.aka.flags
@@ -2269,7 +2320,28 @@ function showWinOverlay(){
   }
 
   updateWinPicker()
-  document.getElementById('win-overlay').style.display='flex'
+  renderLateScoreControls()
+}
+
+function renderLateScoreControls(){
+  const box = document.getElementById('late-score-controls')
+  if(!box) return
+  if(match.isKata){
+    box.style.display = 'none'
+    box.innerHTML = ''
+    return
+  }
+  const aau = isAAURuleset()
+  const aoLabel = aau ? 'SHIRO' : 'AO'
+  const buttons = (role) => aau
+    ? `<button onclick="addLateScore('${role}','yuko')">Waza-ari</button><button onclick="addLateScore('${role}','wazaAri')">Ippon</button>`
+    : `<button onclick="addLateScore('${role}','yuko')">Yuko</button><button onclick="addLateScore('${role}','wazaAri')">Waza-ari</button><button onclick="addLateScore('${role}','ippon')">Ippon</button>`
+  box.innerHTML = `
+    <div class="late-score-title">Record late point</div>
+    <div class="late-score-row"><div class="late-score-side">AKA</div><div class="late-score-buttons">${buttons('aka')}</div></div>
+    <div class="late-score-row"><div class="late-score-side">${aoLabel}</div><div class="late-score-buttons">${buttons('ao')}</div></div>
+  `
+  box.style.display = 'block'
 }
 
 function pickWinner(role){
@@ -2292,6 +2364,7 @@ function updateWinPicker(){
 
 function confirmMatchEnd(){
   document.getElementById('win-overlay').style.display='none'
+  editingAfterConfirm = false
 
   // Quick match has no bracket to update — just go back to setup
   if(tournament.isQuick){

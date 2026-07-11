@@ -193,6 +193,7 @@ select{appearance:none;}
 .buzzer-link{color:var(--navy);text-decoration:underline;cursor:pointer;font-size:13px;}
 .end-btn{background:none;border:0.5px solid #A89F8C;border-radius:20px;padding:5px 14px;font-size:13px;color:var(--beige-sub);}
 .abandon-btn{background:none;border:none;color:var(--beige-muted);font-size:14px;padding:10px 0 2px;width:100%;text-align:center;text-decoration:underline;text-underline-offset:3px;}
+.back-match-btn{background:var(--beige-card);border:1px solid var(--navy);color:var(--navy);font-weight:700;font-size:16px;border-radius:10px;padding:13px;width:100%;margin:10px 0 2px;}
 
 /* EVENT LOG */
 .log-summary{background:var(--beige-card);padding:10px 16px;display:flex;justify-content:space-around;border-bottom:0.5px solid var(--beige-border);}
@@ -591,7 +592,7 @@ select{appearance:none;}
     <div class="late-score-controls" id="late-score-controls"></div>
 
     <button class="btn-navy" onclick="confirmMatchEnd()">Confirm & continue →</button>
-    <button class="abandon-btn" onclick="returnToScoringFromConfirm()">← Edit score / penalties</button>
+    <button class="back-match-btn" onclick="returnToScoringFromConfirm()">← Back to match</button>
     <button class="abandon-btn" onclick="abandonMatch()">← Exit without recording</button>
   </div>
 </div>
