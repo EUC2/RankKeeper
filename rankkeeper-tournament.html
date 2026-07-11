@@ -183,6 +183,8 @@ select{appearance:none;}
 .timer-bar{background:var(--beige-card);padding:12px 14px;display:flex;align-items:center;gap:8px;border-top:0.5px solid var(--beige-border);flex-shrink:0;}
 .timer-display{font-size:52px;font-weight:500;color:var(--beige-text);letter-spacing:.05em;flex:1;text-align:center;cursor:pointer;}
 .time-adj{background:var(--beige-surface);border:0.5px solid var(--beige-border);border-radius:10px;width:48px;padding:14px 0;font-size:24px;font-weight:500;color:var(--navy);flex-shrink:0;}
+.time-adj.small{width:38px;font-size:15px;font-weight:700;}
+.time-adj.set{width:46px;font-size:13px;font-weight:800;letter-spacing:.04em;}
 .time-adj:active{background:var(--beige-border);}
 .undo-btn{background:var(--beige-surface);border:0.5px solid var(--beige-border);border-radius:10px;padding:12px 14px;font-size:16px;color:var(--beige-sub);}
 .hajime-btn{background:var(--navy);color:var(--gold);font-weight:700;border:none;border-radius:10px;padding:14px 22px;font-size:20px;letter-spacing:.06em;}
@@ -521,7 +523,10 @@ select{appearance:none;}
     <div class="timer-bar">
       <button class="undo-btn" onclick="undoLast()">↩ Undo</button>
       <button class="time-adj" onclick="adjustTime(-15)" title="−15 sec">−</button>
+      <button class="time-adj small" onclick="adjustTime(-1)" title="−1 sec">−1</button>
       <div class="timer-display" id="timer-display" onclick="editTime()" title="Tap to set time">0:00</div>
+      <button class="time-adj set" onclick="editTime()" title="Set exact time">SET</button>
+      <button class="time-adj small" onclick="adjustTime(1)" title="+1 sec">+1</button>
       <button class="time-adj" onclick="adjustTime(15)" title="+15 sec">+</button>
       <button class="hajime-btn" id="hajime-btn" onclick="toggleTimer()">HAJIME</button>
     </div>
@@ -579,6 +584,7 @@ select{appearance:none;}
     </div>
 
     <button class="btn-navy" onclick="confirmMatchEnd()">Confirm & continue →</button>
+    <button class="abandon-btn" onclick="returnToScoringFromConfirm()">← Edit score / penalties</button>
     <button class="abandon-btn" onclick="abandonMatch()">← Exit without recording</button>
   </div>
 </div>
@@ -1696,6 +1702,7 @@ function startMatch(matchId, bout){
   timerRunning = false
   buzzFired = false
   matchEnded = false
+  editingAfterConfirm = false
   clearInterval(timerInterval)
 
   document.getElementById('scorer-match-info').textContent =
@@ -2001,6 +2008,11 @@ function addScore(side, type){
 }
 
 function checkWinCondition(type){
+  // If the user backed out of the confirmation screen to correct a late score
+  // or penalty, do not immediately re-open the confirmation overlay. They can
+  // finish corrections and tap End match when ready.
+  if(editingAfterConfirm) return
+
   // Sparring and quick scoreboard: never auto-end on points — end manually or on time
   if(tournament.isSpar || tournament.isQuick) return
 
@@ -2102,7 +2114,7 @@ function adjustTime(delta){
 // Tap the clock to type a new time (mm:ss or seconds)
 function editTime(){
   const cur = formatTime(timerSecs)
-  const input = prompt('Set match time (mm:ss or seconds):', cur)
+  const input = prompt('Set clock time. Examples: 23 = 0:23, 1:05 = 1:05', cur)
   if(input===null) return
   let secs = 0
   if(input.includes(':')){
@@ -2177,13 +2189,27 @@ function formatTime(s){
 // END MATCH
 // ══════════════════════════════════════════════
 let matchEnded = false   // guard so a match can only end once
+let editingAfterConfirm = false
 
 function endMatch(){ showWinOverlay() }
+
+function returnToScoringFromConfirm(){
+  document.getElementById('win-overlay').style.display='none'
+  matchEnded = false
+  editingAfterConfirm = true
+  timerRunning = false
+  clearInterval(timerInterval)
+  document.getElementById('hajime-btn').textContent = 'HAJIME'
+  renderScorer()
+  updateRecentStrip()
+  showScreen('scorer')
+}
 
 function abandonMatch(){
   // Close the overlay and reset state — nothing is recorded
   document.getElementById('win-overlay').style.display='none'
   matchEnded = false
+  editingAfterConfirm = false
   timerRunning = false
   clearInterval(timerInterval)
   document.getElementById('hajime-btn').textContent = 'HAJIME'
@@ -2202,6 +2228,7 @@ function abandonMatch(){
 function showWinOverlay(){
   if(matchEnded) return   // already showing / already ended
   matchEnded = true
+  editingAfterConfirm = false
   timerRunning=false; clearInterval(timerInterval)
   document.getElementById('hajime-btn').textContent='HAJIME'
 
@@ -2261,6 +2288,7 @@ function updateWinPicker(){
 
 function confirmMatchEnd(){
   document.getElementById('win-overlay').style.display='none'
+  editingAfterConfirm = false
 
   // Quick match has no bracket to update — just go back to setup
   if(tournament.isQuick){
