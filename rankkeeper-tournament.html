@@ -224,6 +224,12 @@ select{appearance:none;}
 .win-pick-btn.sel-aka{border-color:var(--aka);background:#FEE2E2;color:var(--aka);}
 .win-pick-btn.sel-ao{border-color:var(--ao);background:#DBEAFE;color:var(--ao);}
 .win-pick-btn.dim{opacity:0.5;}
+.late-score-controls{display:none;margin:0 0 18px;text-align:left;}
+.late-score-title{font-size:11px;color:var(--beige-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;text-align:center;}
+.late-score-row{display:grid;grid-template-columns:62px 1fr;gap:7px;align-items:center;margin-bottom:7px;}
+.late-score-side{font-size:12px;font-weight:800;color:var(--beige-sub);text-align:right;}
+.late-score-buttons{display:flex;gap:5px;}
+.late-score-buttons button{flex:1;border:none;border-radius:8px;background:var(--navy);color:var(--gold);font-size:11px;font-weight:800;padding:9px 5px;}
 /* ── DESKTOP / WIDE SCREEN ──────────────────── */
 @media (min-width: 700px) {
   .kata-center { padding: 12px 8px; gap: 12px; width: 100%; }
@@ -582,6 +588,7 @@ select{appearance:none;}
       <button class="win-pick-btn" id="pick-aka" onclick="pickWinner('aka')"></button>
       <button class="win-pick-btn" id="pick-ao" onclick="pickWinner('ao')"></button>
     </div>
+    <div class="late-score-controls" id="late-score-controls"></div>
 
     <button class="btn-navy" onclick="confirmMatchEnd()">Confirm & continue →</button>
     <button class="abandon-btn" onclick="returnToScoringFromConfirm()">← Edit score / penalties</button>
@@ -1981,7 +1988,10 @@ function updateRecentStrip(){
 // SCORING
 // ══════════════════════════════════════════════
 function addScore(side, type){
-  const role = roleOf(side)
+  addScoreForRole(roleOf(side), type)
+}
+
+function addScoreForRole(role, type, skipAutoEnd=false){
   const f = match[role]
   const pts = type==='yuko'?1:type==='wazaAri'?2:3
 
@@ -2004,7 +2014,15 @@ function addScore(side, type){
 
   updateRecentStrip()
   renderScorer()
+  if(skipAutoEnd) return
   checkWinCondition(type)
+}
+
+function addLateScore(role, type){
+  if(match.isKata) return
+  addScoreForRole(role, type, true)
+  populateWinOverlay()
+  document.getElementById('win-overlay').style.display='flex'
 }
 
 function checkWinCondition(type){
@@ -2232,6 +2250,11 @@ function showWinOverlay(){
   timerRunning=false; clearInterval(timerInterval)
   document.getElementById('hajime-btn').textContent='HAJIME'
 
+  populateWinOverlay()
+  document.getElementById('win-overlay').style.display='flex'
+}
+
+function populateWinOverlay(){
   if(match.isKata){
     // Kata: winner by flag majority
     const aoWins = match.ao.flags > match.aka.flags
@@ -2265,7 +2288,28 @@ function showWinOverlay(){
   }
 
   updateWinPicker()
-  document.getElementById('win-overlay').style.display='flex'
+  renderLateScoreControls()
+}
+
+function renderLateScoreControls(){
+  const box = document.getElementById('late-score-controls')
+  if(!box) return
+  if(match.isKata){
+    box.style.display = 'none'
+    box.innerHTML = ''
+    return
+  }
+  const aau = isAAURuleset()
+  const aoLabel = aau ? 'SHIRO' : 'AO'
+  const buttons = (role) => aau
+    ? `<button onclick="addLateScore('${role}','yuko')">Waza-ari</button><button onclick="addLateScore('${role}','wazaAri')">Ippon</button>`
+    : `<button onclick="addLateScore('${role}','yuko')">Yuko</button><button onclick="addLateScore('${role}','wazaAri')">Waza-ari</button><button onclick="addLateScore('${role}','ippon')">Ippon</button>`
+  box.innerHTML = `
+    <div class="late-score-title">Record late point</div>
+    <div class="late-score-row"><div class="late-score-side">AKA</div><div class="late-score-buttons">${buttons('aka')}</div></div>
+    <div class="late-score-row"><div class="late-score-side">${aoLabel}</div><div class="late-score-buttons">${buttons('ao')}</div></div>
+  `
+  box.style.display = 'block'
 }
 
 function pickWinner(role){
