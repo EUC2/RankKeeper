@@ -3,7 +3,8 @@
 This folder contains a two-page static website mockup:
 
 - `index.html` — landing page with RankKeeper features and sample T Elite Martial Arts branding.
-- `pricing.html` — pricing page with Stripe-hosted checkout links for RankKeeper subscriptions.
+- `index.html#pricing` — on-page pricing section with Stripe-hosted checkout links for RankKeeper subscriptions.
+- `pricing.html` — optional standalone pricing page.
 - `pricing/` — clean pricing route fallback for static hosts.
 - `vercel.json` — Vercel routing support for `/pricing` and `/pricing/`.
 
