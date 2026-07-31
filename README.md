@@ -1,11 +1,11 @@
-# RankKeeper website package
+# UPLOAD THIS RANKKEEPER WEBSITE
 
-This is a compact single-page RankKeeper marketing site.
+Upload the contents of this folder as the website root.
 
-- `index.html` is the main landing page.
-- `index.html#pricing` is the primary pricing section.
-- `pricing.html` and `pricing/` redirect to the pricing section as route fallbacks.
-- Subscription buttons use public Stripe Payment Links.
-- No Stripe secret keys, webhook secrets, Supabase keys, passwords, or private credentials are included.
+The main page is `index.html`.
 
-Monthly plans advertise a 7-day free trial. Annual plans advertise a 30-day free trial.
+Pricing is built into the main page at `index.html#pricing`; the `pricing.html`
+and `pricing/` files only redirect there so hosted routes do not 404.
+
+This package includes public Stripe Payment Links only. It does not include
+Stripe secret keys, Supabase keys, passwords, or webhook secrets.

@@ -2,13 +2,7 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "rewrites": [
-    {
-      "source": "/pricing",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/pricing/",
-      "destination": "/index.html"
-    }
+    { "source": "/pricing", "destination": "/index.html" },
+    { "source": "/pricing/", "destination": "/index.html" }
   ]
 }
