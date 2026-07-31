@@ -151,6 +151,7 @@ p{color:var(--muted);font-size:18px;line-height:1.62}
 .price{font-size:48px;font-weight:950;color:var(--navy);letter-spacing:-.04em;margin:10px 0}
 .price span{font-size:18px;color:var(--muted);font-weight:700}
 .price .price-amount{font-size:48px;color:var(--navy);font-weight:950}
+.price-disclaimer{margin:-6px 0 14px;color:#8a6411;font-size:13px;font-weight:900;line-height:1.35}
 .annual-savings{min-height:0;margin:0 0 14px;font-size:14px;line-height:1.35;color:#17663a;font-weight:900}
 .annual-savings.show{background:#def7e7;border:1px solid #91d8a8;border-radius:999px;padding:8px 11px}
 .trial-note{display:inline-flex;margin:0 0 14px;background:#eef4ff;border:1px solid #c8d8f1;border-radius:999px;padding:8px 11px;color:#0b4fbe;font-size:14px;font-weight:950}
