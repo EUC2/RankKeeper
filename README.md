@@ -1,39 +1,15 @@
-# RankKeeper
+# RankKeeper website mockup
 
-Belt-grading app for karate senseis. Built with React + Vite.
+This folder contains a two-page static website mockup:
 
-## Put it online (no Terminal needed)
+- `index.html` — landing page with RankKeeper features and sample T Elite Martial Arts branding.
+- `pricing.html` — pricing page with Stripe-hosted checkout links for RankKeeper subscriptions.
 
-1. Make two free accounts: github.com and vercel.com (sign in to Vercel with "Continue with GitHub").
-2. On GitHub: New repository (name it "rankkeeper", Public is fine) > then on the repo page,
-   "Add file" > "Upload files" > drag in EVERYTHING from this folder (package.json, index.html,
-   vite.config.js, .gitignore, README.md, and the whole src folder) > "Commit changes".
-3. On Vercel: "Add New..." > "Project" > Import the rankkeeper repo > click "Deploy".
-   Vercel installs and builds it in the cloud (about a minute) and gives you a live link.
+The subscription checkout buttons use public Stripe Payment Links. No Stripe secret keys, webhook secrets, Supabase keys, passwords, or private credentials are included.
 
-You do NOT need Node.js or Terminal for this. Vercel does the building for you.
+Sample school identity used in the mockup:
 
-## Notes
-- Data is saved in the browser on each device (localStorage). Great for testing and single-sensei use.
-- For multi-device sync + selling, swap localStorage for a cloud database (e.g. Supabase) later.
+- T Elite Martial Arts
+- Sensei Faouzi Touati
 
-## Admin console
-
-The `/admin` page is a separate Vite entry point. It is built with the app rather
-than loading Supabase from a browser CDN, so an ad blocker or CDN outage cannot
-leave it stuck on the session-checking screen. Its login uses the same Vercel
-environment variables as the app:
-
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-
-After deployment, open `/admin/` and sign in as `support@euc2.org`.
-
-### First-time Dojo Wall setup
-
-Before the first deployment of the full console, run
-`supabase/migrations/20260624_admin_dojo_wall.sql` in the Supabase SQL Editor.
-It creates the kata and rank-system libraries, adds the billing/support fields
-to profiles, and applies the admin and dojo ownership policies. The migration
-is safe to run again. The Kata Library includes a CSV importer for the master
-kata roster (`name,min_level,style`).
+Monthly plans are marketed with a 7-day free trial. Annual plans are marketed with a 30-day free trial and annual savings messaging.
