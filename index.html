@@ -1,15 +1,246 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0B2545" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="manifest" href="/manifest.json" />
-    <title>RankKeeper</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>RankKeeper | Rank tracking for modern dojos</title>
+  <meta name="description" content="RankKeeper helps martial arts schools track students, tests, ranks, kata, and scoring with customizable dojo branding." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="index.html" aria-label="RankKeeper home">
+      <span class="brand-mark">RK</span>
+      <span>
+        <strong>RankKeeper</strong>
+        <small>Dojo records, beautifully kept</small>
+      </span>
+    </a>
+    <nav aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#customize">Customize</a>
+      <a href="#scorekeeper">ScoreKeeper</a>
+      <a class="nav-cta" href="pricing.html">View pricing</a>
+      <details class="login-menu">
+        <summary>Login</summary>
+        <form class="login-panel" onsubmit="return false" aria-label="Existing customer login mockup">
+          <strong>Welcome back</strong>
+          <span>Log in to your RankKeeper dojo account.</span>
+          <label>
+            Email
+            <input type="email" name="email" autocomplete="username" placeholder="sensei@example.com" />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" autocomplete="current-password" placeholder="••••••••" />
+          </label>
+          <button type="submit">Log in to RankKeeper</button>
+          <a href="#">Forgot password?</a>
+        </form>
+      </details>
+    </nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Built for karate schools, dojos, and tournament days</p>
+        <h1>Your student ranks, test history, kata lists, and scorekeeping in one calm place.</h1>
+        <p class="hero-text">RankKeeper replaces scattered spreadsheets and paper test sheets with a polished dojo dashboard. Track progress, prepare rank tests, customize your system, and run quick kumite or kata matches from the same family of tools.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="pricing.html">Start with RankKeeper</a>
+          <a class="button secondary" href="#features">See features</a>
+        </div>
+        <div class="proof">
+          <span>Sample dojo:</span>
+          <strong>T Elite Martial Arts</strong>
+          <span>· Sensei Faouzi Touati</span>
+        </div>
+      </div>
+      <div class="hero-visual" aria-label="RankKeeper dashboard mockup for T Elite Martial Arts">
+        <div class="app-window large">
+          <div class="window-top">
+            <span></span><span></span><span></span>
+            <em>T Elite Martial Arts dashboard</em>
+          </div>
+          <div class="dashboard-grid">
+            <aside class="dojo-card">
+              <img src="assets/telite-logo.jpg" alt="Touati Elite Martial Arts logo" />
+              <h3>T Elite Martial Arts</h3>
+              <p>Sensei Faouzi Touati</p>
+              <div class="pill">JKA · WKF · AAU ready</div>
+            </aside>
+            <section class="roster-card">
+              <div class="section-title">
+                <span>Students</span>
+                <strong>48 active</strong>
+              </div>
+              <div class="student-row"><b>Amira B.</b><span>6th Kyu · Green</span><i></i></div>
+              <div class="student-row"><b>Youssef T.</b><span>4th Kyu · Purple</span><i></i></div>
+              <div class="student-row"><b>Maya R.</b><span>1st Kyu · Brown</span><i></i></div>
+            </section>
+            <section class="test-card">
+              <div class="section-title">
+                <span>Next test</span>
+                <strong>Aug 17</strong>
+              </div>
+              <div class="progress-line"><span style="width:82%"></span></div>
+              <p>12 students ready · 4 need kata review</p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="logo-strip" aria-label="RankKeeper feature areas">
+      <span>Roster</span>
+      <span>Rank Tests</span>
+      <span>Kata Library</span>
+      <span>ScoreKeeper</span>
+      <span>Dojo Branding</span>
+    </section>
+
+    <section class="section intro">
+      <p class="eyebrow">Why schools use it</p>
+      <h2>RankKeeper is made for the rhythm of a real dojo.</h2>
+      <p>Students progress at different speeds. Families ask what is next. Instructors need clean test lists. Tournament days move fast. RankKeeper keeps all of that organized without making your dojo feel like an office.</p>
+    </section>
+
+    <section class="feature-list" id="features">
+      <article class="feature-row">
+        <div class="screen-shot">
+          <div class="mini-window">
+            <div class="window-top"><span></span><span></span><span></span><em>Roster</em></div>
+            <div class="table-shot">
+              <div class="table-head"><b>Student</b><b>Rank</b><b>Ready</b></div>
+              <div><strong>Leila Touati</strong><span>7th Kyu · Yellow</span><mark>Yes</mark></div>
+              <div><strong>Karim A.</strong><span>8th Kyu · Orange</span><mark>No</mark></div>
+              <div><strong>Nora S.</strong><span>3rd Kyu · Brown</span><mark>Yes</mark></div>
+            </div>
+          </div>
+        </div>
+        <div class="feature-copy">
+          <p class="eyebrow">Student tracking</p>
+          <h2>See every student’s rank, belt, age, and testing readiness.</h2>
+          <p>RankKeeper keeps your roster clean and practical. Filter by rank, identify who is close to testing, and keep student progress visible without digging through notes.</p>
+          <ul>
+            <li>Student profiles with rank and belt history</li>
+            <li>Test readiness views for instructors</li>
+            <li>Works for small dojos and growing schools</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="feature-row reverse">
+        <div class="screen-shot">
+          <div class="mini-window gold-window">
+            <div class="window-top"><span></span><span></span><span></span><em>Rank Test</em></div>
+            <div class="test-shot">
+              <h3>Brown Belt Test</h3>
+              <p>T Elite Martial Arts · Sensei Faouzi Touati</p>
+              <div class="check-line"><span></span>Kihon requirements</div>
+              <div class="check-line"><span></span>Kata assigned</div>
+              <div class="check-line"><span></span>Instructor notes</div>
+              <button>Mark complete</button>
+            </div>
+          </div>
+        </div>
+        <div class="feature-copy">
+          <p class="eyebrow">Rank testing</p>
+          <h2>Run cleaner rank tests with history attached.</h2>
+          <p>Prepare a test, record outcomes, and keep a permanent trail of who tested, when they tested, and what rank they earned.</p>
+          <ul>
+            <li>Testing lists by rank level</li>
+            <li>Pass, hold, and instructor note tracking</li>
+            <li>History that follows each student</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="feature-row" id="customize">
+        <div class="screen-shot">
+          <div class="phone-shot">
+            <div class="phone-top"></div>
+            <img src="assets/telite-logo.jpg" alt="Touati Elite Martial Arts logo used as sample branding" />
+            <h3>T Elite Martial Arts</h3>
+            <p>Custom dojo colors, logo, rank system, and kata list.</p>
+            <div class="color-row"><span></span><span></span><span></span><span></span></div>
+          </div>
+        </div>
+        <div class="feature-copy">
+          <p class="eyebrow">Customization</p>
+          <h2>Make the app feel like your dojo, not someone else’s template.</h2>
+          <p>Use your logo, your rank system, your kata requirements, and your school identity. The sample pages here use T Elite Martial Arts and Sensei Faouzi Touati to show how branded the experience can feel.</p>
+          <ul>
+            <li>Custom logo and school identity</li>
+            <li>JKA, WKF, AAU, USA NKF, or custom rank systems</li>
+            <li>Editable kata libraries and testing requirements</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="feature-row reverse" id="scorekeeper">
+        <div class="screen-shot">
+          <div class="scoreboard-shot">
+            <div class="score-side blue">
+              <span>AO</span>
+              <strong>3</strong>
+              <button>Yuko</button>
+              <button>Waza-ari</button>
+              <button>Ippon</button>
+            </div>
+            <div class="score-center">
+              <b>0:23</b>
+              <small>SET · ±1 sec · ±15 sec</small>
+              <em>Kumite quick match</em>
+            </div>
+            <div class="score-side red">
+              <span>AKA</span>
+              <strong>5</strong>
+              <button>Yuko</button>
+              <button>Waza-ari</button>
+              <button>Ippon</button>
+            </div>
+          </div>
+        </div>
+        <div class="feature-copy">
+          <p class="eyebrow">ScoreKeeper add-on</p>
+          <h2>Run quick kumite and kata scoring without a paper table.</h2>
+          <p>ScoreKeeper supports quick matches, kata flags, late-point corrections, exact clock resets, and match confirmation screens designed for real referee flow.</p>
+          <ul>
+            <li>Kumite points: Yuko, Waza-ari, Ippon</li>
+            <li>Kata flag scoring and winner confirmation</li>
+            <li>Exact clock setting when the ref says “put 23 seconds back on”</li>
+          </ul>
+        </div>
+      </article>
+    </section>
+
+    <section class="admin-section">
+      <div>
+        <p class="eyebrow">Admin friendly</p>
+        <h2>Built for support, setup, and growth.</h2>
+        <p>The Dojo Wall admin area helps manage schools, kata libraries, rank systems, and account status. It is designed so the product can grow from one dojo to many without losing control.</p>
+      </div>
+      <div class="admin-grid">
+        <div><strong>Kata Library</strong><span>Global and custom kata lists</span></div>
+        <div><strong>Rank Systems</strong><span>Ranks, belts, colors, order</span></div>
+        <div><strong>Accounts</strong><span>Dojo status and support view</span></div>
+        <div><strong>Branding</strong><span>School-specific identity</span></div>
+      </div>
+    </section>
+
+    <section class="pricing-callout">
+      <p class="eyebrow">Simple next step</p>
+      <h2>Ready to see the purchase flow?</h2>
+      <p>Choose monthly for a 7-day free trial, or annual for a 30-day free trial and savings up to 15%.</p>
+      <a class="button primary" href="pricing.html">View plans</a>
+    </section>
+  </main>
+
+  <footer>
+    <strong>RankKeeper</strong>
+    <span>RankKeeper is a product of <a href="https://educationunderconstruction.com" target="_blank" rel="noopener">Education Under Construction</a>. Sample branding shown with T Elite Martial Arts · Sensei Faouzi Touati.</span>
+  </footer>
+</body>
 </html>
