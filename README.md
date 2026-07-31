@@ -1,18 +1,11 @@
-# RankKeeper website mockup
+# RankKeeper website package
 
-This folder contains a two-page static website mockup:
+This is a compact single-page RankKeeper marketing site.
 
-- `index.html` — landing page with RankKeeper features and sample T Elite Martial Arts branding.
-- `index.html#pricing` — on-page pricing section with Stripe-hosted checkout links for RankKeeper subscriptions.
-- `pricing.html` — optional standalone pricing page.
-- `pricing/` — clean pricing route fallback for static hosts.
-- `vercel.json` — Vercel routing support for `/pricing` and `/pricing/`.
+- `index.html` is the main landing page.
+- `index.html#pricing` is the primary pricing section.
+- `pricing.html` and `pricing/` redirect to the pricing section as route fallbacks.
+- Subscription buttons use public Stripe Payment Links.
+- No Stripe secret keys, webhook secrets, Supabase keys, passwords, or private credentials are included.
 
-The subscription checkout buttons use public Stripe Payment Links. No Stripe secret keys, webhook secrets, Supabase keys, passwords, or private credentials are included.
-
-Sample school identity used in the mockup:
-
-- T Elite Martial Arts
-- Sensei Faouzi Touati
-
-Monthly plans are marketed with a 7-day free trial. Annual plans are marketed with a 30-day free trial and annual savings messaging.
+Monthly plans advertise a 7-day free trial. Annual plans advertise a 30-day free trial.
