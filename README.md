@@ -14,9 +14,10 @@ and `pricing/` files only redirect there so hosted routes do not 404.
 
 ## Login fix in this package
 
-The landing-page login dropdown now opens the real app login instead of using a
-dead `onsubmit="return false"` form. The login form does not send passwords
-through the marketing page or place passwords in the URL.
+The landing-page header has a single `Login` button that opens the real app
+login at `/app`. The marketing page no longer has a dropdown/mini-login form,
+so customers do not see two login screens and passwords are never entered into
+the public marketing page.
 
 The React app now shows a clear configuration message if these Vercel variables
 are missing or misnamed:

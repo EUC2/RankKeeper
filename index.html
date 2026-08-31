@@ -19,16 +19,7 @@
       <a href="#customize">Customize</a>
       <a href="#scorekeeper">ScoreKeeper</a>
       <a class="nav-cta" href="#pricing">Pricing</a>
-      <details class="login-menu">
-        <summary>Login</summary>
-        <form class="login-panel" id="rk-login-jump" action="/app.html" method="get">
-          <strong>Welcome back</strong>
-          <span>Open the secure RankKeeper login screen for your dojo account.</span>
-          <label>Email <input type="email" autocomplete="username" placeholder="sensei@example.com" data-login-email /></label>
-          <button type="submit">Open RankKeeper login</button>
-          <a href="mailto:support@rankkeeper.app?subject=RankKeeper%20password%20help">Forgot password?</a>
-        </form>
-      </details>
+      <a class="login-link" href="/app.html">Login</a>
     </nav>
   </header>
   <main id="top">
@@ -68,7 +59,6 @@
   </main>
   <footer><strong>RankKeeper</strong><span>RankKeeper is a product of <a href="https://educationunderconstruction.com" target="_blank" rel="noopener">Education Under Construction</a>. Sample branding shown with T Elite Martial Arts · Sensei Faouzi Touati.</span></footer>
   <script>
-    document.getElementById('rk-login-jump')?.addEventListener('submit', event => { event.preventDefault(); const email = event.currentTarget.querySelector('[data-login-email]')?.value?.trim(); if (email) sessionStorage.setItem('rankkeeperLoginEmail', email); window.location.href = '/app.html'; });
     document.querySelectorAll('[data-plan-card]').forEach(card => { card.querySelectorAll('[data-card-billing]').forEach(button => { button.addEventListener('click', () => { const mode = button.dataset.cardBilling; card.querySelectorAll('[data-card-billing]').forEach(b => { const active = b.dataset.cardBilling === mode; b.classList.toggle('active', active); b.setAttribute('aria-pressed', active ? 'true' : 'false') }); card.querySelectorAll('.price-amount').forEach(el => { el.textContent = el.dataset[mode] }); card.querySelectorAll('.price-term').forEach(el => { el.textContent = el.dataset[mode] }); card.querySelectorAll('.annual-savings').forEach(el => { el.textContent = el.dataset[mode] || ''; el.classList.toggle('show', Boolean(el.dataset[mode])) }); card.querySelectorAll('.trial-note').forEach(el => { el.textContent = el.dataset[mode] }); card.querySelectorAll('.checkout-link').forEach(link => { link.href = link.dataset[`${mode}Href`] }) }) }) })
   </script>
 </body>
