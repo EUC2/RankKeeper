@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { supabase } from "./supabaseClient.js";
+import { supabase, supabaseConfigError } from "./supabaseClient.js";
 import App from "./App.jsx";
 
 const paper = "#F4F1EA";
@@ -43,8 +43,17 @@ export default function AuthGate() {
   const [msg, setMsg] = useState(null);
 
   useEffect(() => {
+    if (!supabase) {
+      setLoading(false);
+      return;
+    }
+    const savedEmail = sessionStorage.getItem("rankkeeperLoginEmail");
+    if (savedEmail) setEmail(savedEmail);
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
+      setLoading(false);
+    }).catch((err) => {
+      setMsg(err.message || "Unable to connect to RankKeeper login.");
       setLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
@@ -60,8 +69,19 @@ export default function AuthGate() {
       .select("access_status, access_until")
       .eq("id", session.user.id)
       .maybeSingle()
-      .then(({ data }) => {
-        if (!cancelled) { setProfile(data); setCheckingProfile(false); }
+      .then(({ data, error }) => {
+        if (error) throw error;
+        if (!cancelled) {
+          setProfile(data);
+          setCheckingProfile(false);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setMsg(err.message || "Unable to check your RankKeeper access.");
+          setProfile(null);
+          setCheckingProfile(false);
+        }
       });
     return () => { cancelled = true; };
   }, [session]);
@@ -77,6 +97,11 @@ export default function AuthGate() {
     if (e && e.preventDefault) e.preventDefault();
     setMsg(null);
 
+    if (!supabase) {
+      setMsg(supabaseConfigError || "RankKeeper login is not configured yet.");
+      return;
+    }
+
     if (mode === "signup") {
       if (password.length < 6) {
         setMsg("Password must be at least 6 characters.");
@@ -91,10 +116,10 @@ export default function AuthGate() {
     setBusy(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({ email: email.trim(), password });
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
       }
     } catch (err) {
@@ -105,6 +130,7 @@ export default function AuthGate() {
   }
 
   async function logout() {
+    if (!supabase) return;
     await supabase.auth.signOut();
     setProfile(null);
     setEmail("");
@@ -115,11 +141,27 @@ export default function AuthGate() {
   const hasAccess =
     profile &&
     (profile.access_status === "lifetime" ||
-      ((profile.access_status === "active" || profile.access_status === "trial") &&
+      ((profile.access_status === "active" || profile.access_status === "trial" || profile.access_status === "trialing") &&
         (!profile.access_until || new Date(profile.access_until) > new Date())));
 
   if (loading) {
     return (<><style>{styles}</style><div className="rk-center">Loading…</div></>);
+  }
+
+  if (!supabase) {
+    return (
+      <>
+        <style>{styles}</style>
+        <div className="rk-auth-wrap">
+          <div className="rk-card">
+            <img className="rk-logo" src="/icon-512.png" alt="RankKeeper" />
+            <h1 className="rk-title">RankKeeper</h1>
+            <p className="rk-sub">Login needs configuration</p>
+            <div className="rk-msg">{supabaseConfigError}</div>
+          </div>
+        </div>
+      </>
+    );
   }
 
   if (!session) {

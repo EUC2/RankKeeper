@@ -9,7 +9,8 @@ export default defineConfig({
       // The admin console is deliberately a separate page, not a React route.
       // Vite bundles its dependencies so /admin does not rely on a CDN at runtime.
       input: {
-        app: resolve(__dirname, "index.html"),
+        marketing: resolve(__dirname, "index.html"),
+        app: resolve(__dirname, "app.html"),
         admin: resolve(__dirname, "admin.html"),
       },
     },
