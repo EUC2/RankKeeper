@@ -12,6 +12,12 @@ Upload or deploy the contents of this folder as the RankKeeper project root.
 Pricing is built into the main page at `index.html#pricing`; the `pricing.html`
 and `pricing/` files only redirect there so hosted routes do not 404.
 
+## Favicon / app icon
+
+The package includes explicit favicon links on the marketing, app, pricing, and
+admin entry pages. It also includes both `/favicon.ico` and `/favicon.png`
+fallbacks so browser tabs do not show the generic missing-icon state.
+
 ## Login fix in this package
 
 The landing-page header has a single `Login` button that opens the real app
