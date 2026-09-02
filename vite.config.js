@@ -11,6 +11,8 @@ export default defineConfig({
       input: {
         marketing: resolve(__dirname, "index.html"),
         app: resolve(__dirname, "app.html"),
+        tournament360: resolve(__dirname, "tournament360.html"),
+        tournament360App: resolve(__dirname, "tournament360-app.html"),
         admin: resolve(__dirname, "admin.html"),
       },
     },

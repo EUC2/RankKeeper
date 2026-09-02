@@ -336,6 +336,29 @@ export default function AuthGate() {
                 <button className="hcard-btn" onClick={() => window.location.href="/rankkeeper-tournament.html"}>Enter ScoreKeeper →</button>
               </div>
             </div>
+
+            {/* Tournament360 card */}
+            <div className="hcard">
+              <div className="hcard-accent"/>
+              <div className="hcard-body">
+                <div className="hcard-logo" style={{background:"#071F46", color:"#D4AF37", fontWeight:900}}>
+                  T360
+                </div>
+                <div className="hcard-info">
+                  <div className="hcard-title">Tournament360</div>
+                  <div className="hcard-desc">Phase 1 tournament command center for registration, CSV import, QR check-in, staging, ring scoring, and audience displays.</div>
+                  <div className="hcard-pills">
+                    <span className="hcard-pill">CSV import</span>
+                    <span className="hcard-pill">QR check-in</span>
+                    <span className="hcard-pill">Staging</span>
+                    <span className="hcard-pill">Ring display</span>
+                  </div>
+                </div>
+              </div>
+              <div className="hcard-footer">
+                <button className="hcard-btn" onClick={() => window.location.href="/tournament360-app.html"}>Enter Tournament360 →</button>
+              </div>
+            </div>
           </div>
 
           <div className="home-foot">

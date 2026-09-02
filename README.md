@@ -7,7 +7,19 @@ Upload or deploy the contents of this folder as the RankKeeper project root.
 - `/` or `index.html` is the public RankKeeper marketing/pricing page.
 - `/app` or `app.html` is the secure RankKeeper app login.
 - `/login` also opens the secure RankKeeper app login.
+- `/tournament360`, `/tournament360/`, `/tournament360-app`, `/tournament360-app/`, or `/t360` opens the Phase 1 Tournament360 system prototype.
+- `/tournament360-overview` opens the older visual overview/mockup page if you still need it for reference.
 - `/admin` opens the admin/Dojo Wall page.
+
+## Tournament360 Phase 1
+
+Phase 1 is a local/in-browser system prototype. It includes the admin command
+center, tournament setup, editable entry-fee ladder, division-combine workflow,
+long division checkbox table, source-labeled CSV import preview, QR check-in
+explanation and sample records, staging, ring bracket review, scoring timer
+states, and audience bracket/scoreboard displays. It uses sample/local state
+only; Supabase persistence, Stripe checkout for tournament registrations, SMS
+delivery, and live QR token validation are Phase 2+ backend work.
 
 Pricing is built into the main page at `index.html#pricing`; the `pricing.html`
 and `pricing/` files only redirect there so hosted routes do not 404.

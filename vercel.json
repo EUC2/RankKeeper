@@ -4,6 +4,13 @@
   "rewrites": [
     { "source": "/app", "destination": "/app.html" },
     { "source": "/login", "destination": "/app.html" },
+    { "source": "/tournament360", "destination": "/tournament360-app.html" },
+    { "source": "/tournament360/", "destination": "/tournament360-app.html" },
+    { "source": "/tournament360-overview", "destination": "/tournament360.html" },
+    { "source": "/tournament360-overview/", "destination": "/tournament360.html" },
+    { "source": "/tournament360-app", "destination": "/tournament360-app.html" },
+    { "source": "/tournament360-app/", "destination": "/tournament360-app.html" },
+    { "source": "/t360", "destination": "/tournament360-app.html" },
     { "source": "/pricing", "destination": "/index.html" },
     { "source": "/pricing/", "destination": "/index.html" }
   ]
