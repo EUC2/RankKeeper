@@ -17,8 +17,10 @@ Phase 1 is a local/in-browser system prototype. It includes the admin command
 center, tournament setup, editable entry-fee ladder, division-combine workflow,
 long division checkbox table, source-labeled CSV import preview, QR check-in
 explanation and sample records, staging, ring bracket review, scoring timer
-states, and audience bracket/scoreboard displays. It uses sample/local state
-only; Supabase persistence, Stripe checkout for tournament registrations, SMS
+explanation, staging, ring bracket review, scoring timer states, and audience
+bracket/scoreboard displays. It ships with empty local state only — no test
+athletes, fake registrations, sample divisions, or demo tournament records.
+Supabase persistence, Stripe checkout for tournament registrations, SMS
 delivery, and live QR token validation are Phase 2+ backend work.
 
 Pricing is built into the main page at `index.html#pricing`; the `pricing.html`
