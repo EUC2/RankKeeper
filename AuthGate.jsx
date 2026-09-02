@@ -35,7 +35,8 @@ export default function AuthGate() {
   const [checkingProfile, setCheckingProfile] = useState(false);
 
   const [mode, setMode] = useState("login");
-  const [showHome, setShowHome] = useState(true);
+  const [showHome, setShowHome] = useState(() => !window.location.pathname.startsWith("/tournament360"));
+  const [activeTool, setActiveTool] = useState(() => window.location.pathname.startsWith("/tournament360") ? "tournament360" : "rankkeeper");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
@@ -136,6 +137,18 @@ export default function AuthGate() {
     setEmail("");
     setPassword("");
     setPassword2("");
+  }
+
+  function openRankKeeper() {
+    window.history.pushState(null, "", "/app");
+    setActiveTool("rankkeeper");
+    setShowHome(false);
+  }
+
+  function openTournament360() {
+    window.history.pushState(null, "", "/tournament360");
+    setActiveTool("tournament360");
+    setShowHome(false);
   }
 
   const hasAccess =
@@ -310,7 +323,7 @@ export default function AuthGate() {
                 </div>
               </div>
               <div className="hcard-footer">
-                <button className="hcard-btn" onClick={() => setShowHome(false)}>Enter RankKeeper →</button>
+                <button className="hcard-btn" onClick={openRankKeeper}>Enter RankKeeper →</button>
               </div>
             </div>
 
@@ -356,7 +369,7 @@ export default function AuthGate() {
                 </div>
               </div>
               <div className="hcard-footer">
-                <button className="hcard-btn" onClick={() => window.location.href="/tournament360-app.html"}>Enter Tournament360 →</button>
+                <button className="hcard-btn" onClick={openTournament360}>Enter Tournament360 →</button>
               </div>
             </div>
           </div>
@@ -375,10 +388,18 @@ export default function AuthGate() {
       <style>{styles}</style>
       <div className="rk-topbar">
         <span>Signed in as {session.user.email}</span>
-        <button onClick={() => setShowHome(true)}>⌂ Home</button>
+        <button onClick={() => { window.history.pushState(null, "", "/app"); setShowHome(true); }}>⌂ Home</button>
         <button onClick={logout}>Log out</button>
       </div>
-      <App />
+      {activeTool === "tournament360" ? (
+        <iframe
+          title="Tournament360"
+          src="/tournament360-app.html"
+          style={{ width: "100%", height: "calc(100vh - 42px)", border: 0, display: "block" }}
+        />
+      ) : (
+        <App />
+      )}
     </>
   );
 }

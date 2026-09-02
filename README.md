@@ -7,7 +7,8 @@ Upload or deploy the contents of this folder as the RankKeeper project root.
 - `/` or `index.html` is the public RankKeeper marketing/pricing page.
 - `/app` or `app.html` is the secure RankKeeper app login.
 - `/login` also opens the secure RankKeeper app login.
-- `/tournament360`, `/tournament360/`, `/tournament360-app`, `/tournament360-app/`, or `/t360` opens the Phase 1 Tournament360 system prototype.
+- `/tournament360`, `/tournament360/`, or `/t360` opens the logged-in RankKeeper app shell and then shows the Phase 1 Tournament360 system module.
+- `/tournament360-app.html` is an internal Phase 1 module file used by the authenticated app shell, not a public marketing page.
 - `/tournament360-overview` opens the older visual overview/mockup page if you still need it for reference.
 - `/admin` opens the admin/Dojo Wall page.
 
